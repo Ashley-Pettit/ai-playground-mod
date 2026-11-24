@@ -1,0 +1,14 @@
+{
+  "name": "ai-playground",
+  "owner": { "name": "Ash" },
+  "metadata": {
+    "description": "AI Playground – App Self-Improvement Cherry Picker, a Claude Code mod"
+  },
+  "plugins": [
+    {
+      "name": "self-improve",
+      "source": "./",
+      "description": "Claude improves a private AI playground copy of each app you switch on, and you cherry-pick the improvements into dev, UAT or prod"
+    }
+  ]
+}

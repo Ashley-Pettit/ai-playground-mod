@@ -1,0 +1,20 @@
+{
+  "name": "self-improve",
+  "displayName": "AI Playground – App Self-Improvement Cherry Picker",
+  "version": "0.8.0",
+  "description": "Claude improves a private AI playground copy of each app you switch on, without asking, as often as hourly and within a token budget. You cherry-pick the improvements you want into dev, UAT or prod from your own dashboard, or let them go live by themselves.",
+  "author": {
+    "name": "Ash"
+  },
+  "license": "MIT",
+  "icon": "./.claude-plugin/icon.png",
+  "keywords": [
+    "mod",
+    "artifacts",
+    "improve",
+    "experimental",
+    "playground",
+    "cherry-pick"
+  ],
+  "types": "./types/index.d.ts"
+}

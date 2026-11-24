@@ -1,0 +1,8 @@
+# Written on each computer by Claude Code, or by the mod while it runs.
+.claude-plugin/types/
+.shots/
+.work/
+.inbox/
+node_modules/
+.DS_Store
+*.log

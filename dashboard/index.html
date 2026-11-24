@@ -1,0 +1,1490 @@
+<title>AI Playground</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:wght@500;600&display=swap">
+<style>
+/* Layout: a control deck. A moving HUD plate for a header, three tabs that stay in reach under it, and one page
+   at a time: Auto improve is a dense list with a row for each app, Cherry-pick is an inbox grouped by app,
+   Updates made is a feed. As drawn here it is the Control deck skin, dark whatever theme the viewer is in;
+   the other skins are at the end of this sheet.
+   It is drawn tight: controls are 34px tall under a mouse and 44px under a finger, small capitals in a
+   monospace face label things, and panels keep one shape, a plate with its top right corner cut. */
+:root {
+  --bg: #080b17; --surface: #10152c; --raised: #171d3a; --overlay: #1b2246; --sunk: #0b0f22;
+  --ink: #eef1ff; --muted: #98a2c9;
+  --line: #242b4f; --line-strong: #343c6b; --field: #565f9c;
+  --accent: #a78bfa; --accent-hover: #bda6ff; --accent-ink: #120a33; --accent-soft: #1d1842;
+  --cyan: #22d3ee;
+  --on: #4ade80; --on-ink: #062412; --on-soft: #0d261c; --wait: #fbbf24; --wait-soft: #2b2108;
+  --bad: #f87171; --bad-ink: #2b0707; --scrim: rgba(4, 6, 16, 0.82);
+  --glow: rgba(167, 139, 250, 0.16); --glow-strong: rgba(167, 139, 250, 0.5); --grid: rgba(152, 162, 201, 0.06);
+  --hud-grid: rgba(167, 139, 250, 0.14); --scan: rgba(34, 211, 238, 0.3);
+  --accent-fill: var(--accent); --on-line: #1f7a4a; --hover: rgba(167, 139, 250, 0.045); --mark-ring: rgba(8, 11, 23, 0.8);
+  --display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  --micro: 11px; --small: 13px; --base: 14px;
+  --s1: 4px; --s2: 6px; --s3: 8px; --s4: 12px; --s6: 16px;
+  --hit: 34px; --radius: 3px; --radius-control: 5px;
+  --fast: 150ms; --enter: 200ms; --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: dark;
+}
+@media (pointer: coarse) { :root { --hit: 44px; } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background:
+    radial-gradient(1000px 440px at 50% -140px, var(--glow), transparent 70%) no-repeat,
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 36px 36px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 36px 36px,
+    var(--bg);
+  color: var(--ink); font: 400 var(--base)/1.5 var(--body); padding-block: var(--s6) 48px;
+}
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, h4, p, figure, ol { margin: 0; }
+b, strong { font-weight: 600; }
+h2 { font: 700 18px/1.2 var(--display); letter-spacing: 0.06em; text-transform: uppercase; text-wrap: balance; }
+.name { font: 600 15px/1.25 var(--display); letter-spacing: 0.01em; overflow-wrap: anywhere; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.in { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: var(--s6); }
+.dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+/* The one shape this page keeps coming back to: a plate with its top right corner cut */
+.cut, .list, .group, .import, .how { --cut: 12px; --edge: var(--line); position: relative; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%); }
+.cut::before, .list::before, .group::before, .import::before, .how::before { content: ''; position: absolute; top: calc(var(--cut) - 1px); right: -1px; width: calc(var(--cut) * 1.4142); height: 1px; background: var(--edge); transform-origin: 100% 50%; transform: rotate(45deg); pointer-events: none; }
+
+/* Header: a HUD plate, all of it moving. Behind the title a grid drifts and a scan line sweeps, its corner
+   brackets keep finding their lock, and a light runs along its lower edge */
+.deck { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 18px 24px 20px; border: 1px solid var(--line); border-radius: 3px; background: linear-gradient(115deg, var(--sunk), var(--surface) 55%, var(--accent-soft)); }
+.brand, .status { position: relative; z-index: 1; }
+.brand { margin-right: auto; min-width: 0; }
+.fx { position: absolute; z-index: 0; pointer-events: none; }
+.fx-grid { inset: 0; background: linear-gradient(var(--hud-grid) 1px, transparent 1px) 0 0 / 28px 28px, linear-gradient(90deg, var(--hud-grid) 1px, transparent 1px) 0 0 / 28px 28px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%); mask-image: linear-gradient(90deg, transparent, #000 40%); animation: drift 4s linear infinite; }
+.fx-scan { inset-block: 0; left: 0; width: 34%; background: linear-gradient(90deg, transparent, var(--glow) 60%, var(--scan) 99%, transparent); animation: scan 6s cubic-bezier(0.6, 0, 0.4, 1) infinite; }
+.fx-beam { inset-inline: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent) 40%, var(--cyan) 60%, transparent) 0 0 / 30% 100% no-repeat, var(--line); animation: beam 3.2s linear infinite; }
+.fx-corners { inset: 6px; background: linear-gradient(var(--accent) 0 0) left top / 14px 2px, linear-gradient(var(--accent) 0 0) left top / 2px 14px, linear-gradient(var(--accent) 0 0) right top / 14px 2px, linear-gradient(var(--accent) 0 0) right top / 2px 14px, linear-gradient(var(--accent) 0 0) left bottom / 14px 2px, linear-gradient(var(--accent) 0 0) left bottom / 2px 14px, linear-gradient(var(--accent) 0 0) right bottom / 14px 2px, linear-gradient(var(--accent) 0 0) right bottom / 2px 14px; background-repeat: no-repeat; animation: lock 4s ease-in-out infinite; }
+@keyframes drift { to { background-position: -28px 0, -28px 0; } }
+@keyframes scan { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
+@keyframes beam { from { background-position: -45% 0, 0 0; } to { background-position: 145% 0, 0 0; } }
+@keyframes lock { 50% { inset: 10px; opacity: 0.45; } }
+.brand-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* The line over the title types out what is going on, one fact at a time */
+.eyebrow { font: 600 11px/1.2 var(--mono); min-height: 1.2em; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; color: var(--accent); }
+.eyebrow #readout { color: var(--cyan); }
+.caret { display: inline-block; width: 0.6em; height: 1em; margin-left: 3px; vertical-align: -0.14em; background: var(--cyan); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+/* The orb is a dial: its outer arc fills as the next hourly run comes round, and its core beats while Claude is working */
+.home { display: flex; align-items: center; gap: 16px; border: 0; background: none; padding: 0; text-align: left; }
+.orb { width: 52px; height: 52px; flex: none; overflow: visible; filter: drop-shadow(0 0 10px var(--glow-strong)); }
+.orb circle { fill: none; }
+.orb-track { stroke: var(--line); stroke-width: 2; }
+.orb-arc { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dasharray 1s linear; }
+.orb-ring { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 2 5; opacity: 0.7; transform-origin: 26px 26px; animation: spin 18s linear infinite; }
+.orb-ring2 { stroke: var(--cyan); stroke-width: 1; stroke-dasharray: 18 13; opacity: 0.55; transform-origin: 26px 26px; animation: spin 9s linear infinite reverse; }
+.orb-sweep { fill: var(--cyan); opacity: 0.22; transform-origin: 26px 26px; animation: spin 3.5s linear infinite; }
+.orb-ping { stroke: var(--accent); stroke-width: 1; transform-origin: 26px 26px; animation: ping 2.8s ease-out infinite; }
+.orb .orb-core { fill: var(--accent); animation: breathe 3s ease-in-out infinite; }
+.orb.is-busy .orb-core { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes ping { from { transform: scale(1); opacity: 0.8; } to { transform: scale(2.9); opacity: 0; } }
+@keyframes breathe { 50% { opacity: 0.6; } }
+/* The title: a band of light crosses its letters, and now and then it tears for a moment */
+h1 { position: relative; font: 700 28px/1 var(--display); margin: 0; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; filter: drop-shadow(0 0 14px var(--glow-strong)); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  h1 { color: transparent; background: linear-gradient(100deg, var(--ink) 0 42%, var(--accent) 47%, var(--cyan) 50%, var(--ink) 55% 100%) 100% 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; animation: shine 6s linear infinite; }
+}
+h1::before, h1::after { content: attr(data-text); position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+h1::before { color: var(--cyan); animation: tear-a 7s steps(1) infinite; }
+h1::after { color: var(--accent); animation: tear-b 7s steps(1) infinite; }
+@keyframes shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes tear-a { 0%, 96%, 100% { opacity: 0; } 92% { opacity: 0.9; transform: translate(-3px, 0); clip-path: inset(10% 0 55% 0); } 94% { opacity: 0.9; transform: translate(3px, 0); clip-path: inset(60% 0 8% 0); } }
+@keyframes tear-b { 0%, 97%, 100% { opacity: 0; } 93% { opacity: 0.8; transform: translate(3px, 1px); clip-path: inset(45% 0 25% 0); } 95% { opacity: 0.8; transform: translate(-2px, -1px); clip-path: inset(5% 0 70% 0); } }
+.brand { display: flex; align-items: center; gap: 16px; }
+.sync { display: flex; align-items: center; gap: 8px; font: 600 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; }
+.sync .dot { box-shadow: none; }
+.sync[data-state="live"] { color: var(--on); border-color: var(--on-line); }
+.sync[data-state="live"] .dot { box-shadow: 0 0 8px var(--on); animation: pulse 2s ease-in-out infinite; }
+.sync[data-state="offline"] { color: var(--bad); }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.busy { display: flex; align-items: center; gap: 8px; font: 600 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--wait); }
+.busy .dot { animation: pulse 1.4s ease-in-out infinite; }
+.next { display: flex; align-items: baseline; gap: 8px; font: 600 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.next b { font: 700 20px/1 var(--display); letter-spacing: 0.02em; text-transform: none; color: var(--ink); font-variant-numeric: tabular-nums; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+@keyframes fade { from { opacity: 0; } }
+
+/* The tabs: a slim strip that stays in reach, each with its figure as a readout */
+.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; margin-top: var(--s4); background: var(--bg); border-bottom: 1px solid var(--line); }
+.tabs .in { display: flex; gap: var(--s1); }
+.tab { position: relative; display: flex; align-items: baseline; gap: var(--s3); min-height: 40px; padding: var(--s3) 14px; border: 0; background: none; color: var(--muted); font: 600 14px/1.2 var(--display); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; transition: color var(--fast) ease; }
+.tab:hover { color: var(--ink); }
+.tab::after { content: ''; position: absolute; inset-inline: 0; bottom: -1px; height: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); opacity: 0; transition: opacity var(--fast) ease; }
+.tab[aria-selected="true"] { color: var(--ink); background: linear-gradient(180deg, transparent, var(--accent-soft)); }
+.tab[aria-selected="true"]::after { opacity: 1; }
+.tab:focus-visible { outline-offset: -2px; }
+.tab-n { font: 600 10.5px/1 var(--mono); letter-spacing: 0.12em; color: var(--muted); white-space: nowrap; }
+.tab-n span { margin-right: 2px; font: 700 17px/1 var(--display); letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.tab[aria-selected="true"] .tab-n span, .tab.has-new .tab-n span { color: var(--accent); }
+.tab.has-new .tab-n span { text-shadow: 0 0 12px var(--glow-strong); }
+
+.page { display: flex; flex-direction: column; gap: var(--s4); padding-top: var(--s4); }
+.panel { display: flex; flex-direction: column; gap: var(--s4); }
+.sec { display: flex; flex-direction: column; gap: var(--s2); }
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); }
+.head-text { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.head-text p { font-size: var(--small); color: var(--muted); max-width: 80ch; }
+.head-acts, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.label { font: 600 var(--micro)/1.3 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.label b { margin-left: var(--s1); color: var(--ink); font-variant-numeric: tabular-nums; }
+.note { font-size: var(--small); line-height: 1.45; color: var(--muted); max-width: 90ch; overflow-wrap: anywhere; }
+.note b { color: var(--ink); }
+.tags { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.tags .tag[aria-hidden] { display: none; }
+.tag { display: inline-block; padding: 3px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); font: 600 10.5px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.tag.on { background: var(--on-soft); color: var(--on); }
+.tag.wait { background: var(--wait-soft); color: var(--wait); }
+
+/* Controls */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); min-height: var(--hit); padding: 0 var(--s4); border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--raised); color: var(--ink); font-size: var(--small); font-weight: 600; line-height: 1.2; text-decoration: none; white-space: nowrap; transition: border-color var(--fast) ease, background-color var(--fast) ease, color var(--fast) ease, box-shadow var(--fast) ease; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.go { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--accent-ink); }
+.btn.go:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-ink); box-shadow: 0 0 16px var(--glow-strong); }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--muted); }
+.btn.quiet:hover { border-color: var(--line-strong); color: var(--ink); }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: var(--bad-ink); }
+.btn.quiet.warn { color: var(--bad); }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+.btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.btn b { font-variant-numeric: tabular-nums; }
+.link { display: inline-flex; align-items: center; min-height: 28px; padding: 0; border: 0; background: none; color: var(--accent); font: 600 12px/1.2 var(--mono); text-align: left; text-decoration: none; overflow-wrap: anywhere; }
+.link:hover { color: var(--cyan); text-decoration: underline; text-underline-offset: 4px; }
+/* A square button with only a mark on it says what it does when pointed at or tabbed to */
+.icon { position: relative; display: inline-grid; place-items: center; width: var(--hit); height: var(--hit); flex: none; padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--raised); color: var(--muted); transition: border-color var(--fast) ease, color var(--fast) ease; }
+.icon:hover { border-color: var(--accent); color: var(--accent); }
+.icon.has { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.icon svg { width: 17px; height: 17px; }
+.icon-n { position: absolute; top: -7px; right: -7px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--accent-fill); color: var(--accent-ink); font: 600 10.5px/17px var(--mono); text-align: center; box-shadow: 0 0 10px var(--glow-strong); }
+.icon::after { content: attr(data-tip); position: absolute; right: calc(100% + 6px); top: 50%; z-index: 100; transform: translateY(-50%); width: max-content; max-width: 220px; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--overlay); color: var(--ink); font: 400 12px/1.35 var(--body); text-align: left; pointer-events: none; opacity: 0; transition: opacity var(--fast) ease; }
+.icon:hover::after, .icon:focus-visible::after { opacity: 1; }
+select, input[type="text"] { min-height: var(--hit); max-width: 100%; padding: 0 var(--s3); border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--raised); font-size: var(--small); }
+select:hover { border-color: var(--field); }
+input[type="text"] { width: 100%; padding: 0 var(--s4); background: var(--bg); font-size: var(--base); }
+input[aria-invalid="true"] { border-color: var(--bad); }
+.field { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.cap { font: 600 10.5px/1.3 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.hint { font-size: 12px; line-height: 1.4; color: var(--muted); }
+.error { font-size: var(--small); line-height: 1.45; color: var(--bad); }
+/* The three modes, as one control */
+.modes { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--sunk); }
+.modes button { flex: 1 1 auto; min-height: calc(var(--hit) - 6px); padding: 0 var(--s3); border: 0; border-radius: 3px; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; transition: background-color var(--fast) ease, color var(--fast) ease; }
+.modes button:hover { color: var(--ink); }
+.modes button[aria-pressed="true"] { background: var(--line-strong); color: var(--ink); }
+/* Off, chosen, is told by a ring in the muted text colour too: its fill alone is too faint against the track */
+.modes button[data-mode="off"][aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--muted); }
+.modes button[data-mode="pick"][aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+.modes button[data-mode="immediate"][aria-pressed="true"] { background: var(--accent-fill); color: var(--accent-ink); box-shadow: 0 0 12px var(--glow-strong); }
+
+/* What is going on, said once under the tabs */
+.banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); padding: var(--s3) var(--s4); border: 1px solid var(--bad); border-radius: var(--radius); background: var(--surface); }
+.banner div { flex: 1 1 280px; min-width: 0; }
+.banner p { font-size: var(--small); color: var(--muted); }
+.queue { display: flex; align-items: baseline; gap: var(--s3); padding: var(--s2) var(--s4); border: 1px solid var(--line); border-radius: var(--radius); font-size: var(--small); line-height: 1.45; color: var(--muted); }
+.queue b { color: var(--ink); }
+.queue > span:not(.dot) { min-width: 0; overflow-wrap: anywhere; }
+.queue .dot { color: var(--accent); border-radius: 1px; box-shadow: none; }
+.queue.is-waiting { border-color: transparent; background: var(--wait-soft); color: var(--wait); }
+.queue.is-waiting .dot { color: var(--wait); border-radius: 50%; box-shadow: 0 0 8px var(--wait); animation: pulse 1.4s ease-in-out infinite; }
+
+/* How it works: one strip, three linked steps, folded away once read */
+.how summary { padding: var(--s3) var(--s4); font: 600 var(--micro)/1.3 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+.how summary:hover { color: var(--ink); }
+.how summary:focus-visible { outline-offset: -3px; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.step { position: relative; display: flex; align-items: flex-start; gap: var(--s3); min-width: 0; padding: var(--s3) var(--s6); }
+.step + .step { border-left: 1px solid var(--line); }
+.step + .step::before { content: ''; position: absolute; left: -6px; top: 50%; width: 11px; height: 11px; margin-top: -6px; background: var(--surface); border-top: 1px solid var(--line); border-right: 1px solid var(--line); transform: rotate(45deg); }
+.step b { flex: none; font: 600 12px/1.7 var(--mono); letter-spacing: 0.08em; color: var(--accent); }
+.step strong { display: block; font: 600 14px/1.3 var(--display); }
+.step span { font-size: var(--small); line-height: 1.4; color: var(--muted); }
+.path { padding: var(--s4); border-top: 1px solid var(--line); }
+.stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s4); margin: var(--s3) 0 0; padding: 0; list-style: none; counter-reset: stage; }
+.stage { position: relative; min-width: 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: 8px; }
+.stage + .stage::before { content: '→'; position: absolute; left: calc(-1 * var(--s4)); top: 50%; width: var(--s4); transform: translateY(-50%); text-align: center; color: var(--muted); }
+.stage.is-ai { border-color: var(--accent); background: var(--accent-soft); }
+.stage strong { display: block; font: 600 14px/1.3 var(--display); }
+.stage span { display: block; margin-top: 2px; font-size: var(--small); line-height: 1.4; color: var(--muted); }
+.why { margin-top: var(--s4); max-width: 72ch; }
+.why strong { font: 600 14px/1.3 var(--display); }
+.why p { margin: var(--s1) 0 0; font-size: var(--small); line-height: 1.5; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 2px var(--s6); padding: var(--s3) var(--s4); border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.legend b { margin-right: var(--s2); color: var(--ink); }
+
+/* A list: one plate, a hairline between its rows, each row lighting a little under the pointer */
+.item { display: grid; align-items: center; gap: var(--s2) var(--s4); min-width: 0; padding: var(--s3) var(--s4); transition: background-color var(--fast) ease; }
+.item + .item { border-top: 1px solid var(--line); }
+.list .app:hover { background: var(--hover); }
+/* Apps that are off sit side by side, one slim plate each, so a long list stays short */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); gap: var(--s2); border: 0; background: none; clip-path: none; }
+.tiles::before { content: none; }
+.tiles .item, .tiles .item + .item { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.tiles .item:hover { border-color: var(--line-strong); }
+/* Tab one: an app and its settings on one line, with what it last did under it */
+.app { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "id ctl acts" "note note note"; }
+.app.is-off { grid-template-areas: "id ctl acts"; }
+.app-id { grid-area: id; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s4); min-width: 0; }
+.app-acts { grid-area: acts; display: flex; gap: var(--s2); }
+.app > .note { grid-area: note; }
+.app > .ctl { grid-area: ctl; }
+.state { display: flex; align-items: center; gap: var(--s2); font: 600 12px/1.3 var(--body); color: var(--on); white-space: nowrap; }
+.is-busy .state { color: var(--wait); }
+.is-busy .state .dot { animation: pulse 1.4s ease-in-out infinite; }
+.ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.ctl .cap { display: none; }
+/* Every row's settings are the same width, so they line up down the list */
+.ctl select[data-act="cadence"] { width: 152px; }
+.ctl select[data-act="budget"] { width: 238px; }
+.ctl .btn { min-width: 110px; }
+.arm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s4); border: 1px solid var(--accent); border-radius: var(--radius-control); background: var(--accent-soft); font-size: var(--small); box-shadow: 0 0 18px var(--glow); }
+.arm p { flex: 1 1 240px; min-width: 0; }
+.row { grid-template-columns: minmax(0, 1fr) auto; }
+.row-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s4); min-width: 0; }
+.costs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s6); }
+.costs p { flex: 1 1 320px; max-width: 90ch; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.costs .field, .status .field { flex-direction: row; align-items: center; gap: var(--s3); }
+.skel { display: block; height: 12px; border-radius: 2px; background: var(--raised); animation: pulse 1.5s ease-in-out infinite; }
+.empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); padding: var(--s6) var(--s4); }
+.empty strong { font: 600 15px/1.3 var(--display); }
+.empty p { max-width: 64ch; font-size: var(--small); line-height: 1.45; color: var(--muted); }
+.empty .actions { margin-top: var(--s2); }
+.imps > .empty { padding: var(--s4) 0 0; }
+
+/* Adding a website that was not made with Claude */
+.import { display: flex; flex-direction: column; gap: var(--s4); padding: var(--s4) var(--s6) var(--s6); --edge: var(--line-strong); }
+.import-head { display: flex; align-items: center; gap: var(--s3); padding-right: var(--s4); }
+.import-head h3 { margin-right: auto; font-size: 17px; }
+.import .field.name-field { max-width: 26rem; }
+.drop { display: flex; flex-direction: column; align-items: center; gap: var(--s1); padding: var(--s6) var(--s4); border: 1px dashed var(--field); border-radius: var(--radius-control); background: var(--sunk); text-align: center; transition: border-color var(--fast) ease, background-color var(--fast) ease, box-shadow var(--fast) ease; }
+.drop.is-over { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 4px var(--glow); }
+.drop strong { font: 600 16px/1.3 var(--display); }
+.drop span { font-size: var(--small); color: var(--muted); }
+.drop-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); margin-top: var(--s2); }
+.staged { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s4); font-size: var(--small); }
+.staged details { flex-basis: 100%; color: var(--muted); }
+.staged summary { padding-block: var(--s2); cursor: pointer; }
+.staged ul { margin: 0; padding-left: 20px; overflow-wrap: anywhere; }
+
+/* Tab two: an app and what waits for it. Tab three: what is live */
+.group { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) var(--s6); scroll-margin-top: 56px; }
+.group.is-focus { --edge: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-soft), inset 0 24px 30px -26px var(--glow-strong); }
+.group .head { padding-right: var(--s4); }
+.group .name { font-size: 17px; }
+.group .name:focus-visible { outline-offset: 4px; }
+.links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s6); }
+.imps { display: flex; flex-direction: column; }
+.imp { display: flex; flex-direction: column; gap: var(--s3); padding-block: var(--s4); border-top: 1px solid var(--line); }
+.imps > .label + .imp { margin-top: var(--s3); }
+.imp:last-child { padding-bottom: 0; }
+.imp-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); }
+.imp-title { font: 600 15px/1.25 var(--display); overflow-wrap: anywhere; }
+.imp > p, .entry > p { overflow-wrap: anywhere; font-size: var(--small); line-height: 1.45; color: var(--muted); max-width: 80ch; }
+.entry { display: flex; flex-direction: column; align-items: stretch; gap: var(--s2); padding: var(--s4) var(--s6); }
+.where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s3); }
+.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); max-width: 760px; }
+.shot { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.shot figcaption { font: 600 10.5px/1.3 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.shot.after figcaption { color: var(--on); }
+.shot button { position: relative; display: block; padding: 0; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--bg); cursor: zoom-in; transition: border-color var(--fast) ease, box-shadow var(--fast) ease; }
+.shot button:hover { border-color: var(--accent); box-shadow: 0 0 16px var(--glow); }
+.shot.after button { border-color: var(--on-line); }
+.shot img { display: block; width: 100%; height: auto; }
+/* Boxes over the After picture, round the parts that differ from the Before one */
+.marks { position: absolute; inset: 0; pointer-events: none; }
+.mark { position: absolute; border: 2px solid var(--wait); border-radius: 3px; box-shadow: 0 0 0 1px var(--mark-ring), 0 0 12px var(--wait); }
+.skipped { display: flex; flex-direction: column; }
+.skipped div { display: flex; align-items: center; gap: var(--s3); font-size: var(--small); color: var(--muted); }
+.skipped span { margin-right: auto; overflow-wrap: anywhere; }
+
+/* Over the page: a screenshot at full size, a question before something is deleted, and a word when something fails */
+dialog { color: var(--ink); }
+dialog::backdrop { background: var(--scrim); }
+.box { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: var(--s6); border: 0; background: transparent; }
+.box[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); justify-items: center; gap: var(--s3); }
+.box > .btn { justify-self: end; }
+.box-in { position: relative; display: inline-block; align-self: center; max-width: 100%; line-height: 0; }
+.box img { max-width: 100%; max-height: calc(100dvh - 110px); border: 1px solid var(--line-strong); border-radius: var(--radius-control); box-shadow: 0 0 40px var(--glow); }
+.confirm { width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--accent); border-radius: var(--radius); background: var(--overlay); box-shadow: 0 0 40px var(--glow); }
+.confirm-in { display: flex; flex-direction: column; gap: var(--s3); padding: 20px; }
+.confirm h2 { overflow-wrap: anywhere; font-size: 16px; letter-spacing: 0.03em; text-transform: none; }
+.confirm p { font-size: var(--small); color: var(--muted); }
+.confirm .actions { justify-content: flex-end; margin-top: var(--s2); }
+.toast { position: fixed; left: 50%; bottom: calc(var(--s6) + env(safe-area-inset-bottom, 0px)); z-index: 400; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); width: max-content; max-width: min(560px, calc(100vw - 32px)); padding: var(--s2) var(--s2) var(--s2) var(--s4); border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--overlay); font-size: var(--small); box-shadow: 0 0 24px var(--glow); }
+.toast.is-error { border-color: var(--bad); }
+.toast > span { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 1080px) {
+  .app { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id acts" "ctl ctl" "note note"; }
+  .tiles .app.is-off { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "id ctl acts"; }
+}
+@media (max-width: 720px) {
+  .in { padding-inline: var(--s4); }
+  h1 { font-size: 22px; }
+  .deck { padding: 14px 16px 16px; }
+  .brand { gap: 12px; }
+  .eb-pre { display: none; }
+  .orb { width: 44px; height: 44px; }
+  .tabs .in { gap: 0; padding-inline: var(--s1); }
+  .tab { flex: 1 1 0; flex-direction: column; align-items: flex-start; gap: var(--s1); min-width: 0; padding: var(--s3); font-size: 12px; letter-spacing: 0.04em; }
+  .steps, .stages { grid-template-columns: 1fr; }
+  .stage + .stage::before { content: '↓'; left: 50%; top: calc(-1 * var(--s4)); width: auto; transform: translate(-50%, -2px); }
+  .step + .step { border-left: 0; border-top: 1px solid var(--line); }
+  .step + .step::before { display: none; }
+  .tiles { grid-template-columns: 1fr; }
+  .tiles .app.is-off, .app.is-off { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id acts" "ctl ctl"; }
+  .ctl { flex-direction: column; align-items: stretch; }
+  .ctl .cap { display: block; }
+  .ctl .modes { display: flex; }
+  .ctl select[data-act] { width: 100%; }
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .shots { grid-template-columns: 1fr; }
+  .group, .entry { padding-inline: var(--s4); }
+  .icon::after { display: none; }
+}
+/* The header moves unless the device asks for less motion. Then its scan line and beam are taken away rather than
+   frozen (stopped, the scan line reads as a slab over the title), and the title and readout hold still */
+@media (prefers-reduced-motion: no-preference) { dialog[open], dialog[open]::backdrop, .toast { animation: fade var(--enter) var(--ease-out); } }
+@media (prefers-reduced-motion: reduce) {
+  .tabs *, .page *, .page *::after { animation: none !important; transition: none !important; }
+  .deck .fx-scan, .deck .fx-beam { display: none; }
+  .deck *, .deck *::before, .deck *::after { animation: none !important; }
+}
+
+/* Skins: the same page in other clothes, chosen in the header and kept in this browser. Daylight and Terminal
+   change only the tokens. Claude also drops the deck's HUD for the plain, warm look of a Claude app, and is the
+   one skin that follows the viewer's light or dark theme. */
+:root[data-skin="daylight"] {
+  --bg: #f3f5fb; --surface: #ffffff; --raised: #eef1f9; --overlay: #ffffff; --sunk: #e9edf7;
+  --ink: #121735; --muted: #555e85;
+  --line: #d9deee; --line-strong: #bfc7e0; --field: #8b94b8;
+  --accent: #5b3fd6; --accent-hover: #4a30bf; --accent-ink: #ffffff; --accent-soft: #ebe7fd;
+  --cyan: #0e7490;
+  --on: #116b32; --on-ink: #ffffff; --on-soft: #dcf5e4; --on-line: #86cfa0; --wait: #8a5a00; --wait-soft: #fbefcf;
+  --bad: #b91c1c; --bad-ink: #ffffff; --scrim: rgba(18, 23, 53, 0.55);
+  --glow: rgba(91, 63, 214, 0.1); --glow-strong: rgba(91, 63, 214, 0.28); --grid: rgba(85, 94, 133, 0.07);
+  --hud-grid: rgba(91, 63, 214, 0.1); --scan: rgba(14, 116, 144, 0.18);
+  --hover: rgba(91, 63, 214, 0.05); --mark-ring: rgba(255, 255, 255, 0.85);
+  color-scheme: light;
+}
+:root[data-skin="terminal"] {
+  --bg: #020803; --surface: #06130a; --raised: #0b1d10; --overlay: #0d2313; --sunk: #030c05;
+  --ink: #c9ffd6; --muted: #6fbf85;
+  --line: #123a1e; --line-strong: #1d5a2e; --field: #2f8a47;
+  --accent: #ffb000; --accent-hover: #ffc640; --accent-ink: #1a0f00; --accent-soft: #2a1d05;
+  --cyan: #39ff6a;
+  --on: #39ff6a; --on-ink: #021405; --on-soft: #0b2a14; --on-line: #1d7a38; --wait: #ff8a3c; --wait-soft: #2e1606;
+  --bad: #ff5c5c; --bad-ink: #2b0707; --scrim: rgba(0, 4, 1, 0.85);
+  --glow: rgba(57, 255, 106, 0.12); --glow-strong: rgba(57, 255, 106, 0.45); --grid: rgba(57, 255, 106, 0.05);
+  --hud-grid: rgba(57, 255, 106, 0.12); --scan: rgba(57, 255, 106, 0.28);
+  --hover: rgba(57, 255, 106, 0.05); --mark-ring: rgba(2, 8, 3, 0.8);
+  --display: 'IBM Plex Mono', Consolas, 'Courier New', monospace; --body: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  --radius: 0px; --radius-control: 0px;
+}
+:root[data-skin="claude"] {
+  --bg: #faf9f5; --surface: #ffffff; --raised: #f5f4ee; --overlay: #ffffff; --sunk: #f0eee6;
+  --ink: #1f1e1d; --muted: #6b6a64;
+  --line: #e6e3d8; --line-strong: #d1cec2; --field: #a3a094;
+  --accent: #a8492a; --accent-fill: #b5532f; --accent-hover: #9f4526; --accent-ink: #ffffff; --accent-soft: #f3e3da;
+  --cyan: #8a3d22;
+  --on: #276b43; --on-ink: #ffffff; --on-soft: #e3f1e7; --on-line: #9cc9ad; --wait: #8a5a00; --wait-soft: #f8ecd0;
+  --bad: #b3261e; --bad-ink: #ffffff; --scrim: rgba(31, 30, 29, 0.55);
+  --glow: rgba(31, 30, 29, 0.1); --glow-strong: transparent; --grid: transparent;
+  --hud-grid: transparent; --scan: transparent;
+  --hover: rgba(31, 30, 29, 0.035); --mark-ring: rgba(255, 255, 255, 0.8);
+  --display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --mono: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --micro: 12px; --radius: 12px; --radius-control: 8px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-skin="claude"]:not([data-theme="light"]) {
+  --bg: #262624; --surface: #30302e; --raised: #3a3a37; --overlay: #3a3a37; --sunk: #1f1e1d;
+  --ink: #f5f4ee; --muted: #b0aea5;
+  --line: #3f3e3b; --line-strong: #55534e; --field: #7a786f;
+  --accent: #e6957a; --accent-fill: #d97757; --accent-hover: #e58b6d; --accent-ink: #1f1e1d; --accent-soft: #46332b;
+  --cyan: #f0b8a3;
+  --on: #7fc99a; --on-ink: #0f2a1a; --on-soft: #253a2c; --on-line: #3f6b50; --wait: #e5b85c; --wait-soft: #40351c;
+  --bad: #f08a80; --bad-ink: #2b0b08; --scrim: rgba(0, 0, 0, 0.6);
+  --glow: rgba(0, 0, 0, 0.35); --hover: rgba(255, 255, 255, 0.03); --mark-ring: rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+  }
+}
+:root[data-skin="claude"][data-theme="dark"] {
+  --bg: #262624; --surface: #30302e; --raised: #3a3a37; --overlay: #3a3a37; --sunk: #1f1e1d;
+  --ink: #f5f4ee; --muted: #b0aea5;
+  --line: #3f3e3b; --line-strong: #55534e; --field: #7a786f;
+  --accent: #e6957a; --accent-fill: #d97757; --accent-hover: #e58b6d; --accent-ink: #1f1e1d; --accent-soft: #46332b;
+  --cyan: #f0b8a3;
+  --on: #7fc99a; --on-ink: #0f2a1a; --on-soft: #253a2c; --on-line: #3f6b50; --wait: #e5b85c; --wait-soft: #40351c;
+  --bad: #f08a80; --bad-ink: #2b0b08; --scrim: rgba(0, 0, 0, 0.6);
+  --glow: rgba(0, 0, 0, 0.35); --hover: rgba(255, 255, 255, 0.03); --mark-ring: rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+/* Claude: plain ground, rounded plates with no cut corner, a serif for the headings and sentence case everywhere */
+:root[data-skin="claude"] body { background: var(--bg); }
+:root[data-skin="claude"] :is(.cut, .list, .group, .import, .how) { clip-path: none; }
+:root[data-skin="claude"] :is(.cut, .list, .group, .import, .how)::before { content: none; }
+:root[data-skin="claude"] .list:not(.tiles) > .item:first-child { border-radius: 11px 11px 0 0; }
+:root[data-skin="claude"] .list:not(.tiles) > .item:last-child { border-radius: 0 0 11px 11px; }
+:root[data-skin="claude"] .list:not(.tiles) > .item:only-child { border-radius: 11px; }
+:root[data-skin="claude"] :is(.fx, .eb-pre, .caret) { display: none; }
+:root[data-skin="claude"] .deck { overflow: visible; padding: var(--s3) 0 var(--s1); border: 0; border-radius: 0; background: none; }
+:root[data-skin="claude"] .orb { width: 40px; height: 40px; filter: none; }
+:root[data-skin="claude"] :is(.orb-ring, .orb-ring2, .orb-sweep, .orb-ping) { display: none; }
+:root[data-skin="claude"] h1 { font: 500 30px/1.15 var(--display); letter-spacing: -0.01em; text-transform: none; color: var(--ink); background: none; animation: none; filter: none; }
+:root[data-skin="claude"] h1::before, :root[data-skin="claude"] h1::after { content: none; }
+:root[data-skin="claude"] h2 { font: 500 22px/1.2 var(--display); letter-spacing: 0; text-transform: none; }
+:root[data-skin="claude"] .confirm h2 { font: 600 16px/1.3 var(--body); }
+:root[data-skin="claude"] :is(.eyebrow, .sync, .busy, .next, .tab, .tab-n, .label, .tag, .cap, .how summary, .shot figcaption, .step b) { letter-spacing: 0; text-transform: none; }
+:root[data-skin="claude"] .eyebrow { font: 400 13px/1.2 var(--body); }
+:root[data-skin="claude"] .eyebrow, :root[data-skin="claude"] .eyebrow #readout { color: var(--muted); }
+:root[data-skin="claude"] :is(.name, .imp-title, .step strong, .empty strong, .drop strong, .tab, .tab-n span, .next b) { font-family: var(--body); }
+:root[data-skin="claude"] :is(.sync, .busy, .next, .cap, .tab-n, .shot figcaption) { font-size: 12px; }
+:root[data-skin="claude"] .tag { padding: 3px 7px; border-radius: 6px; font-size: 11.5px; }
+:root[data-skin="claude"] .dot, :root[data-skin="claude"] .sync[data-state="live"] .dot, :root[data-skin="claude"] .queue.is-waiting .dot { box-shadow: none; }
+:root[data-skin="claude"] .tab::after { box-shadow: none; }
+:root[data-skin="claude"] .tab[aria-selected="true"] { background: none; }
+:root[data-skin="claude"] .modes button { border-radius: 6px; }
+@media (max-width: 720px) {
+  :root[data-skin="claude"] h1 { font-size: 24px; }
+  :root[data-skin="claude"] .orb { width: 36px; height: 36px; }
+}
+</style>
+
+<script>
+// The skin chosen in this browser goes on before anything is drawn, so the page never flashes another one.
+try { const skin = localStorage.getItem('self-improve-skin'); if (skin && skin !== 'deck') document.documentElement.dataset.skin = skin } catch { /* the Control deck is drawn */ }
+</script>
+
+<div class="in"><header class="deck">
+  <span class="fx fx-grid" aria-hidden="true"></span><span class="fx fx-scan" aria-hidden="true"></span><span class="fx fx-corners" aria-hidden="true"></span><span class="fx fx-beam" aria-hidden="true"></span>
+  <div class="brand" id="home">
+    <svg class="orb" id="orb" viewBox="0 0 52 52" aria-hidden="true"><circle class="orb-track" cx="26" cy="26" r="24"/><circle class="orb-arc" id="orb-arc" cx="26" cy="26" r="24" pathLength="100" stroke-dasharray="0 100" transform="rotate(-90 26 26)"/><circle class="orb-ring2" cx="26" cy="26" r="20"/><path class="orb-sweep" d="M26 26 L26 10 A16 16 0 0 1 39.86 18 Z"/><circle class="orb-ring" cx="26" cy="26" r="16"/><circle class="orb-ping" cx="26" cy="26" r="8"/><circle class="orb-core" cx="26" cy="26" r="8"/></svg>
+    <div class="brand-text"><span class="eyebrow" aria-hidden="true"><span class="eb-pre">Self-improvement cherry picker // </span><span id="readout">Auto improve</span><i class="caret"></i></span><h1 id="title" data-text="AI Playground" aria-label="AI Playground">AI Playground</h1></div>
+  </div>
+  <div class="status">
+    <span class="busy" id="busy" hidden><span class="dot" aria-hidden="true"></span>Claude is working</span>
+    <div class="next" id="next" hidden><span>Next run</span><b id="next-in"></b></div>
+    <div class="sync" id="sync" data-state="connecting"><span class="dot" aria-hidden="true"></span><span id="sync-text">Connecting</span></div>
+    <label class="field" for="skin"><span class="cap">Skin</span><select id="skin"></select></label>
+  </div>
+</header></div>
+
+<div class="tabs"><div class="in" role="tablist" aria-label="Sections">
+  <button class="tab" id="tab-auto" role="tab" aria-selected="true" aria-controls="panel-auto" data-tab="auto"><span>Auto improve</span><span class="tab-n"><span id="count-on">0</span> on</span></button>
+  <button class="tab" id="tab-pick" role="tab" aria-selected="false" aria-controls="panel-pick" data-tab="pick" tabindex="-1"><span>Cherry-pick</span><span class="tab-n"><span id="count-new">0</span> to pick</span></button>
+  <button class="tab" id="tab-live" role="tab" aria-selected="false" aria-controls="panel-live" data-tab="live" tabindex="-1"><span>Updates made</span><span class="tab-n"><span id="count-live">0</span> made</span></button>
+</div></div>
+
+<main class="page in">
+  <div class="banner" id="banner" role="alert" hidden><div><strong id="banner-title"></strong><p id="banner-text"></p></div><button class="btn" id="banner-go" data-act="reload">Reload page</button></div>
+  <p class="queue" id="queue" role="status" hidden><span class="dot" aria-hidden="true"></span><span id="queue-text"></span></p>
+
+  <section class="panel" id="panel-auto" role="tabpanel" aria-labelledby="tab-auto">
+    <div class="head">
+      <div class="head-text"><h2>Auto improve</h2><p>Choose how Claude improves each app. A change here is saved as you make it.</p></div>
+      <div class="head-acts"><button class="btn" id="import-open" data-act="import-open" aria-expanded="false" aria-controls="import">Add a website</button><button class="btn quiet" id="refresh" data-act="refresh">Refresh list</button></div>
+    </div>
+
+    <details class="how" id="how" open>
+      <summary>How it works</summary>
+      <ol class="steps">
+        <li class="step"><b>01</b><div><strong>Pick a mode</strong><span>Set each app to Cherry-pick or Immediate.</span></div></li>
+        <li class="step"><b>02</b><div><strong>Claude improves its playground</strong><span>A private copy of your app, as often as every hour, within the token budget you set. Your app is never touched.</span></div></li>
+        <li class="step"><b>03</b><div><strong>It goes live your way</strong><span>Cherry-pick: you move the ones you like into dev, UAT or prod. Immediate: they go live by themselves.</span></div></li>
+      </ol>
+      <section class="path" aria-labelledby="path-h">
+        <h3 class="label" id="path-h">Where a change goes</h3>
+        <ol class="stages">
+          <li class="stage is-ai"><strong>AI playground</strong><span>Claude’s own copy. It tries ideas there on its own, with nobody waiting. Most stay there.</span></li>
+          <li class="stage"><strong>Dev</strong><span>Your workbench. Only the changes you picked, to try together and fix up.</span></li>
+          <li class="stage"><strong>UAT</strong><span>The rehearsal. People check it works for them before it ships.</span></li>
+          <li class="stage"><strong>Prod</strong><span>The live app everyone uses.</span></li>
+        </ol>
+        <div class="why">
+          <strong>Why a playground before dev?</strong>
+          <p>Dev should only hold work you chose. Claude makes new ideas every hour, some great and some not, and pouring them all into dev would bury your own work and leave you sorting out which change broke what. The playground keeps every experiment in a copy of its own, so you can look at each one with before and after pictures and throw any away at no cost. Nothing leaves it until you cherry-pick it, so every change in dev is one you meant to make.</p>
+        </div>
+      </section>
+      <p class="legend"><span><b>Off</b>Claude leaves it alone.</span><span><b>Cherry-pick</b>Claude improves its playground; you choose what goes to dev, UAT and prod.</span><span><b>Immediate</b>Each new improvement skips dev and UAT and goes straight into prod.</span></p>
+    </details>
+
+    <section class="import" id="import" aria-labelledby="import-h" hidden>
+      <div class="import-head"><h3 class="name" id="import-h">Add a website that wasn’t made with Claude</h3><button class="btn quiet" data-act="import-close">Close</button></div>
+      <p class="note">Drop in everything the site is made of: pages, styles, scripts, images and fonts. Claude rebuilds it as a private Claude artifact, which becomes your live version, makes its AI playground and starts it on Cherry-pick. Parts that run on a server, such as PHP, databases and form handlers, can’t come across.</p>
+      <div class="field">
+        <span class="cap" id="drop-label">Site files</span>
+        <div class="drop" id="drop" role="group" aria-labelledby="drop-label">
+          <strong>Drop the site’s files or folder here</strong>
+          <span>Anywhere on this page works too.</span>
+          <div class="drop-btns"><button class="btn" id="pick-files" data-act="pick-files" aria-describedby="import-files-error">Choose files</button><button class="btn" id="pick-folder" data-act="pick-folder">Choose a folder</button></div>
+          <input type="file" id="import-files" multiple hidden><input type="file" id="import-folder" webkitdirectory multiple hidden>
+        </div>
+        <p class="error" id="import-files-error" role="alert" hidden>Add the site’s files first. Drop them here, or choose them.</p>
+        <div id="import-list"></div>
+      </div>
+      <div class="field name-field">
+        <label class="cap" for="import-name">Site name</label>
+        <input id="import-name" type="text" maxlength="80" autocomplete="off" aria-required="true" aria-describedby="import-name-hint import-name-error">
+        <p class="hint" id="import-name-hint">What to call it in your list. A dropped folder’s name is filled in for you.</p>
+        <p class="error" id="import-name-error" role="alert" hidden>Enter a site name.</p>
+      </div>
+      <div class="actions"><button class="btn go" id="import-go" data-act="import-go">Upload and rebuild</button><span class="note" id="import-status" role="status"></span></div>
+    </section>
+
+    <div class="panel" id="grid"></div>
+    <section class="sec" id="imports" hidden></section>
+    <div class="costs"><p>Costs are very rough: a run priced as Claude Opus 5.5 on the API, at a fixed exchange rate. On a Claude subscription a run counts against your plan’s usage instead.</p><label class="field" for="currency"><span class="cap">Show costs in</span><select id="currency"></select></label></div>
+  </section>
+
+  <section class="panel" id="panel-pick" role="tabpanel" aria-labelledby="tab-pick" hidden>
+    <div class="head">
+      <div class="head-text"><h2>Cherry-pick</h2><p>Improvements waiting for you, app by app. Nothing here is live until you add it.</p></div>
+      <div class="head-acts"><button class="btn quiet" data-act="marks-toggle">Hide change boxes</button></div>
+    </div>
+    <div class="panel" id="pick-list"></div>
+  </section>
+
+  <section class="panel" id="panel-live" role="tabpanel" aria-labelledby="tab-live" hidden>
+    <div class="head">
+      <div class="head-text"><h2>Updates made</h2><p>Everything now in a live app, newest first.</p></div>
+      <div class="head-acts"><button class="btn quiet" data-act="marks-toggle">Hide change boxes</button></div>
+    </div>
+    <div class="actions" role="group" aria-label="Show">
+      <button class="btn" data-act="live-filter" data-f="all" aria-pressed="true">All <b id="lf-all">0</b></button>
+      <button class="btn" data-act="live-filter" data-f="auto" aria-pressed="false">Automatic <b id="lf-auto">0</b></button>
+      <button class="btn" data-act="live-filter" data-f="pick" aria-pressed="false">Cherry-picked <b id="lf-pick">0</b></button>
+    </div>
+    <div class="panel" id="live-list"></div>
+  </section>
+</main>
+
+<dialog class="box" id="box" aria-label="Screenshot at full size"><button class="btn" data-act="close-box">Close</button><div class="box-in"><img id="box-img" alt=""><span class="marks" id="box-marks"></span></div></dialog>
+<dialog class="confirm" id="confirm" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text"><div class="confirm-in">
+  <h2 id="confirm-title"></h2><p id="confirm-text"></p>
+  <div class="actions"><button class="btn" id="confirm-no" data-act="confirm-no">Cancel</button><button class="btn danger" id="confirm-yes" data-act="confirm-yes">Delete files</button></div>
+</div></dialog>
+<div class="toast" id="toast" hidden><span id="toast-text"></span><button class="btn quiet" id="toast-copy" data-act="toast-copy" hidden>Copy error details</button><button class="btn quiet" data-act="toast-close">Dismiss</button></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id)
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+  const CATS = { ui: 'UI', ux: 'UX', visual: 'Visual', feature: 'Feature', mobile: 'Mobile', fix: 'Fix' }
+  const CADENCES = [['hourly', 'Every hour'], ['daily', 'Every day'], ['weekly', 'Every week'], ['manual', 'Only when I press']]
+  const RUNS = { hourly: 'every hour', daily: 'every day', weekly: 'every week', manual: 'only when you press Improve now' }
+  const FIRST_RUN = { hourly: 'First run within the hour.', daily: 'First run at the next daily run, a little after 9am.', weekly: 'First run on Monday, a little after 9am.', manual: 'Runs when you press Improve now.' }
+  // A rough number of tokens one run on an app may use; 0 is no limit.
+  const BUDGETS = [0, 100000, 250000, 500000, 1000000]
+  const thousands = n => (n >= 1000000 ? (n / 1000000).toFixed(n % 1000000 ? 1 : 0) + 'M' : Math.round(n / 1000) + 'k')
+  // A very rough price for that many tokens, in the viewer's own money. It takes Claude Opus 5.5's API prices with most of a
+  // run read back from cache, which comes to about US$10 a million tokens, and a fixed exchange rate: good to the nearest dollar or so.
+  const USD_PER_MILLION = 10
+  const RATES = { USD: 1, AUD: 1.5, NZD: 1.7, CAD: 1.4, GBP: 0.77, EUR: 0.9, CHF: 0.85, JPY: 150, INR: 85, SGD: 1.3, HKD: 7.8, CNY: 7.2, KRW: 1400, SEK: 10, NOK: 10.5, DKK: 6.7, ZAR: 18, BRL: 5.5, MXN: 19 }
+  const REGIONS = { US: 'USD', AU: 'AUD', NZ: 'NZD', CA: 'CAD', GB: 'GBP', CH: 'CHF', JP: 'JPY', IN: 'INR', SG: 'SGD', HK: 'HKD', CN: 'CNY', KR: 'KRW', SE: 'SEK', NO: 'NOK', DK: 'DKK', ZA: 'ZAR', BR: 'BRL', MX: 'MXN' }
+  const EURO = 'AT BE CY DE EE ES FI FR GR HR IE IT LT LU LV MT NL PT SI SK'.split(' ')
+  // Where the viewer is says more than the language their browser is set to, so the time zone is asked first.
+  // A computer set to a bare offset ten or eleven hours ahead of GMT is most often in eastern Australia.
+  const guessCurrency = () => {
+    try {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+      if (zone.startsWith('Australia/') || /^Etc\/GMT-1[01]$/.test(zone)) return 'AUD'
+      if (zone === 'Pacific/Auckland') return 'NZD'
+      if (zone === 'Europe/London') return 'GBP'
+      const region = new Intl.Locale(navigator.language).maximize().region
+      return REGIONS[region] || (EURO.includes(region) ? 'EUR' : 'USD')
+    } catch { return 'USD' }
+  }
+  // The guess can be wrong, so the viewer's own choice is kept in this browser and wins.
+  const KEPT = 'self-improve-currency'
+  // Whether the viewer has folded How it works away, kept the same way.
+  const HOW = 'self-improve-how'
+  // The skin the page wears, kept the same way. The Control deck is the page with no skin named.
+  const SKIN = 'self-improve-skin'
+  const SKINS = [['deck', 'Control deck'], ['claude', 'Claude'], ['daylight', 'Daylight'], ['terminal', 'Terminal']]
+  const skinNow = () => (SKINS.some(s => s[0] === document.documentElement.dataset.skin) ? document.documentElement.dataset.skin : 'deck')
+  let currency = (() => {
+    try { const kept = localStorage.getItem(KEPT); if (RATES[kept]) return kept } catch { /* nothing kept */ }
+    return guessCurrency()
+  })()
+  const cost = tokens => {
+    const amount = (tokens / 1000000) * USD_PER_MILLION * RATES[currency]
+    const rough = amount < 10 ? Math.max(1, Math.round(amount)) : Number(amount.toPrecision(2))
+    try { return 'approx. ' + new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 }).format(rough) } catch { return `approx. ${currency} ${rough}` }
+  }
+  const budgetText = n => (n > 0 ? `≈${thousands(n)} tokens, ${cost(n)} a run` : 'No token limit')
+  const CHERRIES = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="17" r="3.5"/><circle cx="17" cy="18" r="3.5"/><path d="M7 13.5C7 9 10 5 15 3M17 14.5c0-4.500-1-8.500-2-11.500M15 3c2-.5 4 0 5 1.500"/></svg>'
+  const OUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>'
+  const MODES = [['off', 'Off'], ['pick', 'Cherry-pick'], ['immediate', 'Immediate']]
+  const TABS = ['auto', 'pick', 'live']
+  const LINKS = { connecting: 'Connecting', live: 'Live sync', offline: 'Offline' }
+  // How many entries Updates made shows at first, and how many more each time it is asked.
+  const PAGE = 20
+  // What a website's files are stored as. Text is kept as plain text, byte for byte, so nothing in it is rewritten on the way in.
+  const BINARY = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm', pdf: 'application/pdf', woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf' }
+  const TEXT = new Set('html htm xhtml css js mjs cjs json svg xml txt md csv php ts tsx jsx vue svelte astro scss sass less njk hbs ejs liquid twig yml yaml toml webmanifest'.split(' '))
+  const MAX_FILES = 400
+  const MB = 1048576
+  const state = { apps: new Map(), imps: new Map(), reqs: new Map(), imports: new Map(), settings: new Map(), loaded: false, slow: false, blocked: false, lost: false, tab: 'auto', focus: '', link: 'connecting', arming: '', sure: '', liveFilter: 'all', liveShown: PAGE, marks: true, staged: [], left: [], busy: false, uploading: '', importNote: '' }
+  let db = null
+  let assets = null
+
+  const ago = iso => {
+    const at = Date.parse(iso)
+    if (!Number.isFinite(at)) return ''
+    const minutes = Math.round((Date.now() - at) / 60000)
+    if (minutes < 2) return 'just now'
+    if (minutes < 60) return minutes + ' min ago'
+    if (minutes < 36 * 60) return Math.round(minutes / 60) + ' h ago'
+    return Math.round(minutes / 1440) + ' days ago'
+  }
+  const now = () => new Date().toISOString()
+  const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`
+  const safeUrl = url => (/^https:\/\//.test(url || '') ? url : '')
+  const size = n => (n < 1024 ? n + ' B' : n < MB ? Math.round(n / 1024) + ' KB' : (n / MB).toFixed(1) + ' MB')
+  const impsOf = appId => [...state.imps.values()].filter(i => i.app_id === appId).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  const own = (table, key, fallback) => (typeof key === 'string' && Object.hasOwn(table, key) ? table[key] : fallback)
+  const isAsset = id => typeof id === 'string' && /^[0-9a-f]{32}$/.test(id)
+  const isLive = i => i.live === 'in'
+  const isWaiting = i => !i.skipped && !isLive(i)
+  const queued = () => [...state.reqs.values()].filter(r => r.state === 'queued' || r.state === 'working')
+  const isBusy = app => app.status === 'queued' || app.status === 'working'
+  // An app from before the three modes has only its on/off switch: on meant cherry-picking.
+  const modeOf = app => (MODES.some(m => m[0] === app.mode) ? app.mode : app.auto ? 'pick' : 'off')
+
+  // A list is redrawn only when what it shows has changed, so a list that has not changed keeps its place and its pictures.
+  const drawn = new Map()
+  const draw = (id, html) => { if (drawn.get(id) !== html) { drawn.set(id, html); $(id).innerHTML = html } }
+  // Where the keyboard is, said so that the same control can be found again once its list has been redrawn.
+  const KEYS = ['app', 'imp', 'import', 'mode', 'target', 'f', 'src']
+  let heldNear = ''
+  const keep = () => {
+    const el = document.activeElement
+    heldNear = el?.closest?.('[id^="app-"], [id^="row-"]')?.id || ''
+    if (!el || el === document.body || el.closest('dialog')) return ''
+    if (el.id) return '#' + CSS.escape(el.id)
+    const panel = el.closest('[role="tabpanel"]')
+    return panel && el.dataset.act ? `#${panel.id} [data-act="${el.dataset.act}"]` + KEYS.filter(k => el.dataset[k] !== undefined).map(k => `[data-${k}="${CSS.escape(el.dataset[k])}"]`).join('') : ''
+  }
+  const isAdrift = () => !document.activeElement || document.activeElement === document.body
+  // A control that has gone, such as the Skip of an improvement just skipped, hands the keyboard to the tab it was under.
+  const refocus = key => {
+    if (!key || !isAdrift()) return
+    const near = heldNear ? document.getElementById(heldNear) : null
+    const to = document.querySelector(key) || near?.querySelector('h3[tabindex], .name[tabindex]') || near || $('tab-' + state.tab)
+    if (to === near && !near.hasAttribute('tabindex')) near.tabIndex = -1
+    to.focus({ preventScroll: true })
+  }
+  const focusOn = selector => document.querySelector(selector)?.focus({ preventScroll: true })
+
+  const modePicker = app => {
+    const mode = modeOf(app)
+    return `<div class="modes" role="group" aria-label="Mode for ${esc(app.title)}">${MODES.map(([value, text]) => `<button aria-pressed="${mode === value}" data-act="mode" data-mode="${value}" data-app="${esc(app.id)}">${text}</button>`).join('')}</div>`
+  }
+  // Immediate changes a live app with nobody looking first, so it is asked for twice.
+  const armer = app =>
+    state.arming === app.id
+      ? `<div class="arm" role="group" aria-label="Turn on Immediate for ${esc(app.title)}"><p id="arm-text">On Immediate, Claude changes the live app by itself, with no review first.</p><button class="btn go" data-act="arm" data-app="${esc(app.id)}" aria-describedby="arm-text">Turn on Immediate</button><button class="btn quiet" data-act="disarm" data-app="${esc(app.id)}" aria-describedby="arm-text">Cancel</button></div>`
+      : ''
+
+  // How often an app runs and how much one run may spend.
+  const dials = app => {
+    const budget = Number(app.budget) > 0 ? Number(app.budget) : 0
+    const budgets = (BUDGETS.includes(budget) ? BUDGETS : [...BUDGETS, budget]).map(n => [n, budgetText(n)])
+    return `<label class="field"><span class="cap">Runs</span><select id="cadence-${esc(app.id)}" data-act="cadence" data-app="${esc(app.id)}" aria-label="Runs, for ${esc(app.title)}">${CADENCES.map(([v, t]) => `<option value="${v}" ${(app.cadence || 'daily') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      <label class="field"><span class="cap">Budget for each run</span><select id="budget-${esc(app.id)}" data-act="budget" data-app="${esc(app.id)}" aria-label="Budget for each run, for ${esc(app.title)}">${budgets.map(([v, t]) => `<option value="${v}" ${budget === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`
+  }
+  const runner = (app, look) => `<button class="btn ${look}" data-act="improve" data-app="${esc(app.id)}" ${isBusy(app) ? 'aria-disabled="true" aria-busy="true"' : ''}>${app.status === 'working' ? 'Working…' : app.status === 'queued' ? 'Queued…' : 'Improve now'}</button>`
+
+  // Tab one: every app as a row with its settings.
+  const opener = app => {
+    const says = `Open ${esc(app.title)}`
+    return safeUrl(app.url) ? `<a class="icon" href="${esc(app.url)}" target="_blank" rel="noopener" data-tip="${says}" aria-label="${says}">${OUT}</a>` : ''
+  }
+  const picker = (app, fresh) => {
+    const says = fresh > 0 ? `Review ${plural(fresh, 'improvement')} for ${esc(app.title)}` : `View improvements for ${esc(app.title)}`
+    return `<button class="icon ${fresh > 0 ? 'has' : ''}" data-act="review" data-app="${esc(app.id)}" data-tip="${says}" aria-label="${says}">${CHERRIES}${fresh > 0 ? `<span class="icon-n" aria-hidden="true">${fresh}</span>` : ''}</button>`
+  }
+  const tags = app => (app.source === 'import' ? `<p class="tag">Rebuilt from upload</p>` : '')
+
+  // Switched on, a row says what the app last did and carries its settings and its mode. Off, it is its name and its mode.
+  const appRow = app => {
+    const mine = impsOf(app.id)
+    const fresh = mine.filter(isWaiting).length
+    const isOn = modeOf(app) !== 'off'
+    const last = mine[0]
+    let meta = 'On, no runs yet'
+    let note = own(FIRST_RUN, app.cadence, FIRST_RUN.daily)
+    if (app.status === 'working') { meta = 'Working'; note = 'Claude is improving its copy now.' }
+    else if (app.status === 'queued') { meta = 'Queued'; note = 'Waiting for Claude to start.' }
+    else if (last) { meta = `Improved ${ago(last.created_at)}`; note = `<b>${esc(last.title)}.</b>${last.summary ? ' ' + esc(last.summary) : ''}` }
+    return `<article class="item app ${isOn ? 'is-on' : 'is-off'} ${isBusy(app) ? 'is-busy' : ''}" id="row-${esc(app.id)}" aria-label="${esc(app.title)}">
+      <div class="app-id"><h4 class="name">${esc(app.title)}</h4>${isOn ? `<p class="state"><span class="dot" aria-hidden="true"></span>${esc(meta)}</p>` : ''}${tags(app)}</div>
+      <div class="app-acts">${picker(app, fresh)}${opener(app)}</div>
+      ${isOn ? `<p class="note">${note}</p>` : ''}
+      <div class="ctl">${isOn ? `<div class="field"><span class="cap">Mode</span>${modePicker(app)}</div>${dials(app)}${runner(app, '')}` : modePicker(app)}</div>
+      ${armer(app)}
+    </article>`
+  }
+
+  // What changed between a Before and an After picture, found by comparing the two: both are drawn small, laid over a
+  // coarse grid, and each patch of cells that differs becomes a box. Boxes are kept as percentages of the picture.
+  const found = new Map()
+  const picture = src => new Promise((done, no) => { const im = new Image(); im.onload = () => done(im); im.onerror = no; im.src = src })
+  const findMarks = async (beforeId, afterId) => {
+    const [before, after] = await Promise.all([picture('/_blob/' + beforeId), picture('/_blob/' + afterId)])
+    const shape = im => im.naturalWidth / im.naturalHeight
+    if (Math.abs(shape(before) - shape(after)) > 0.05 * shape(after)) return []
+    const W = 192, H = Math.max(8, Math.round(W / shape(after))), CELL = 4
+    const pixels = im => { const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, W, H); return g.getImageData(0, 0, W, H).data }
+    const a = pixels(before), b = pixels(after)
+    const cols = Math.ceil(W / CELL), rows = Math.ceil(H / CELL)
+    const hot = new Uint8Array(cols * rows)
+    const counts = new Uint16Array(cols * rows)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4
+      if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 60) counts[Math.floor(y / CELL) * cols + Math.floor(x / CELL)]++
+    }
+    let lit = 0
+    for (let k = 0; k < hot.length; k++) if (counts[k] >= 3) { hot[k] = 1; lit++ }
+    // Nothing to see, or so much changed that boxes would say nothing.
+    if (lit === 0 || lit > hot.length * 0.6) return []
+    const boxes = []
+    const seen = new Uint8Array(hot.length)
+    for (let k = 0; k < hot.length; k++) {
+      if (!hot[k] || seen[k]) continue
+      const box = { x0: cols, y0: rows, x1: 0, y1: 0, cells: 0 }
+      const todo = [k]
+      seen[k] = 1
+      while (todo.length) {
+        const at = todo.pop(), cx = at % cols, cy = Math.floor(at / cols)
+        box.x0 = Math.min(box.x0, cx); box.y0 = Math.min(box.y0, cy); box.x1 = Math.max(box.x1, cx); box.y1 = Math.max(box.y1, cy); box.cells++
+        // Cells up to two apart belong together, so a change with gaps in it is one box.
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+          const nx = cx + dx, ny = cy + dy, n = ny * cols + nx
+          if (nx < 0 || ny < 0 || nx >= cols || ny >= rows || !hot[n] || seen[n]) continue
+          seen[n] = 1
+          todo.push(n)
+        }
+      }
+      if (box.cells >= 2) boxes.push(box)
+    }
+    boxes.sort((p, q) => q.cells - p.cells)
+    return boxes.slice(0, 4).map(box => {
+      const x0 = Math.max(0, box.x0 - 1), y0 = Math.max(0, box.y0 - 1), x1 = Math.min(cols, box.x1 + 2), y1 = Math.min(rows, box.y1 + 2)
+      return { x: (x0 / cols) * 100, y: (y0 / rows) * 100, w: ((x1 - x0) / cols) * 100, h: ((y1 - y0) / rows) * 100 }
+    })
+  }
+  const boxed = key => (state.marks ? (found.get(key) || []).map(m => `<span class="mark" style="left:${m.x.toFixed(2)}%;top:${m.y.toFixed(2)}%;width:${m.w.toFixed(2)}%;height:${m.h.toFixed(2)}%"></span>`).join('') : '')
+  const redraw = () => { for (const el of document.querySelectorAll('.marks[data-key]')) el.innerHTML = boxed(el.dataset.key) }
+  const shot = (kind, id, title, key) => {
+    const says = `${kind === 'after' ? 'After' : 'Before'}: ${esc(title)}`
+    return `<figure class="shot ${kind}"><figcaption>${kind === 'after' ? 'After' : 'Before'}</figcaption><button data-act="zoom" data-src="/_blob/${esc(id)}" data-key="${kind === 'after' ? esc(key) : ''}" data-alt="${says}" aria-label="Enlarge the ${kind} screenshot of ${esc(title)}"><img loading="lazy" src="/_blob/${esc(id)}" alt="${says}">${kind === 'after' ? `<span class="marks" data-key="${esc(key)}">${boxed(key)}</span>` : ''}</button></figure>`
+  }
+  const marking = 'IntersectionObserver' in window ? new IntersectionObserver(seen => {
+    for (const one of seen) {
+      if (!one.isIntersecting) continue
+      marking.unobserve(one.target)
+      const key = one.target.dataset.key
+      if (found.has(key)) continue
+      found.set(key, [])
+      const [before, after] = key.split('|')
+      findMarks(before, after).then(marks => { found.set(key, marks); redraw() }).catch(() => undefined)
+    }
+  }, { rootMargin: '200px' }) : null
+  const watchMarks = () => { if (marking) for (const el of document.querySelectorAll('.shots .marks[data-key]')) if (!found.has(el.dataset.key)) marking.observe(el) }
+  const shots = i => {
+    if (!(isAsset(i.before_asset) && isAsset(i.after_asset))) return ''
+    const key = `${i.before_asset}|${i.after_asset}`
+    return `<div class="shots">${shot('before', i.before_asset, i.title, key)}${shot('after', i.after_asset, i.title, key)}</div>`
+  }
+  // What kind of improvement it is and where it stands, as a line of plain words.
+  const tagLine = parts => `<p class="tags">${parts.filter(Boolean).join('<span class="tag" aria-hidden="true">·</span>')}</p>`
+  const empty = (title, text, actions) => `<div class="empty"><strong>${title}</strong><p>${text}</p>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`
+
+  // An improvement that is not live yet, with where it can go: dev, then UAT, then prod (the live app).
+  // An improvement from before UAT existed has no uat field, which counts as not in UAT.
+  const where = (i, stage) => i[stage] || 'no'
+  const STAGES = [['dev', 'dev'], ['uat', 'UAT'], ['live', 'prod']]
+  const isTaken = i => [...state.reqs.values()].some(r => r.improvement_id === i.id && r.state === 'working')
+  const improvement = i => {
+    const adding = STAGES.some(([k]) => where(i, k) === 'adding')
+    const taken = adding && isTaken(i)
+    const isIn = STAGES.filter(([k]) => k !== 'live' && where(i, k) === 'in').map(([, name]) => `<span class="tag on">In ${name}</span>`)
+    // The next stage it has not reached is the main action; prod is always on offer.
+    const next = (STAGES.find(([k]) => where(i, k) === 'no') || STAGES[2])[0]
+    const stageButton = ([k, name]) => where(i, k) === 'in' ? '' :
+      `<button class="btn ${k === next ? 'go' : ''}" data-act="add" data-target="${k}" data-imp="${esc(i.id)}" ${where(i, k) === 'adding' ? 'aria-disabled="true" aria-busy="true"' : ''}>${where(i, k) === 'adding' ? `Adding to ${name}…` : `Add to ${name}`}</button>`
+    return `<div class="imp">
+      <div class="imp-head"><h4 class="imp-title">${esc(i.title)}</h4>${tagLine([`<span class="tag">${esc(own(CATS, i.category, 'UI'))}</span>`, ...isIn, adding ? `<span class="tag wait">${taken ? 'Claude is adding it' : 'Waiting for Claude'}</span>` : ''])}</div>
+      ${i.summary ? `<p>${esc(i.summary)}</p>` : ''}
+      ${shots(i)}
+      <div class="actions">
+        ${STAGES.map(stageButton).join('')}
+        ${taken ? '' : adding ? `<button class="btn quiet" data-act="cancel" data-imp="${esc(i.id)}">Cancel</button>` : `<button class="btn quiet" data-act="skip" data-imp="${esc(i.id)}">Skip</button>`}
+      </div>
+    </div>`
+  }
+
+  // Tab two: one block per app, holding only what is not in its live version yet.
+  const block = app => {
+    const mine = impsOf(app.id)
+    const waiting = mine.filter(isWaiting)
+    const live = mine.filter(isLive).length
+    const skipped = mine.filter(i => i.skipped && !isLive(i))
+    const mode = modeOf(app)
+    const link = (url, text, none) => (safeUrl(url) ? `<a class="link" href="${esc(url)}" target="_blank" rel="noopener">${text}<span aria-hidden="true">&nbsp;↗</span></a>` : none ? `<span class="tag">${none}</span>` : '')
+    const spent = Number.isFinite(app.last_run_made) ? `: ${app.last_run_made} made${app.last_run_tokens > 0 ? `, about ${thousands(app.last_run_tokens)} tokens (${cost(app.last_run_tokens)})` : ''}${app.last_run_stopped === 'budget' ? ', stopped at the budget' : ''}` : ''
+    const status = app.status === 'working' ? 'Claude is improving it now.' : app.status === 'queued' ? 'Waiting for Claude to start.' : app.last_run_at ? `Last run ${ago(app.last_run_at)}${spent}.` : 'Not run yet.'
+    const setting = mode === 'off' ? 'Auto improve is off.' : `${MODES.find(m => m[0] === mode)[1]}, ${own(RUNS, app.cadence, RUNS.daily)}.`
+    const change = `<button class="btn quiet" data-act="settings" data-app="${esc(app.id)}">Change mode</button>`
+    const nothing = isBusy(app)
+      ? empty('Nothing waiting yet', 'Claude is working on this app. Its improvements appear here as they are made.', '')
+      : mode === 'immediate'
+        ? empty('Nothing waiting', 'On Immediate, new improvements go live by themselves.', `<button class="btn" data-act="see-live">View updates made</button>`)
+        : app.experimental_url
+          ? empty('Nothing waiting', 'Everything Claude has made for this app is dealt with. Run it again for more.', runner(app, 'go'))
+          : empty('Nothing here yet', 'Run this app once and its improvements appear here, each with before and after pictures.', runner(app, 'go'))
+    return `<article class="group ${state.focus === app.id ? 'is-focus' : ''}" id="app-${esc(app.id)}" aria-labelledby="app-h-${esc(app.id)}">
+      <div class="head">
+        <div class="head-text"><h3 class="name" id="app-h-${esc(app.id)}" tabindex="-1">${esc(app.title)}</h3><p class="note">${esc(setting)} ${esc(status)}</p></div>
+        <div class="head-acts">${waiting.length ? runner(app, '') : ''}${change}</div>
+      </div>
+      <div class="links">${link(app.experimental_url, 'Open AI playground', 'AI playground not made yet')}${link(app.dev_url, 'Open dev', 'Dev copy not made yet')}${link(app.uat_url, 'Open UAT', 'UAT copy not made yet')}${link(app.url, 'Open prod', '')}</div>
+      <div class="imps">
+        <p class="label">To cherry-pick <b>${waiting.length}</b></p>
+        ${waiting.length ? waiting.map(improvement).join('') : nothing}
+      </div>
+      ${skipped.length ? `<div class="skipped"><p class="label">Skipped <b>${skipped.length}</b></p>${skipped.map(i => `<div><span>${esc(i.title)}</span><button class="btn quiet" data-act="unskip" data-imp="${esc(i.id)}">Bring back</button></div>`).join('')}</div>` : ''}
+      ${live ? `<div><button class="btn quiet" data-act="see-live">View ${plural(live, 'live update')}</button></div>` : ''}
+    </article>`
+  }
+
+  // Tab three: one entry per improvement that is in a live version, however it got there.
+  const wasAuto = i => i.applied === 'auto'
+  const liveAt = i => i.applied_at || i.created_at
+  const entry = i => {
+    const app = state.apps.get(i.app_id)
+    const when = i.applied_at ? `put live ${ago(i.applied_at)}` : `made ${ago(i.created_at)}`
+    return `<article class="item entry">
+      <div class="imp-head"><h3 class="imp-title">${esc(i.title)}</h3>${tagLine([`<span class="tag">${esc(own(CATS, i.category, 'UI'))}</span>`, `<span class="tag">${wasAuto(i) ? 'Automatic' : 'Cherry-picked'}</span>`])}</div>
+      <p class="where">${app ? `<button class="link" data-act="focus" data-app="${esc(app.id)}" data-imp="${esc(i.id)}" aria-label="View improvements for ${esc(app.title)}">${esc(app.title)}</button>` : ''}<span>${esc(when)}</span></p>
+      ${i.summary ? `<p>${esc(i.summary)}</p>` : ''}
+      ${shots(i)}
+    </article>`
+  }
+
+  // The websites being added: what was uploaded, and where Claude is with rebuilding each.
+  const importRow = imp => {
+    const files = Array.isArray(imp.files) ? imp.files : []
+    const said = {
+      uploading: imp.id === state.uploading ? 'Uploading its files…' : 'The upload didn’t finish.',
+      queued: 'Uploaded. Waiting for Claude to rebuild it.',
+      working: 'Claude is rebuilding it now.',
+      done: 'Rebuilt. It’s in your list, on Cherry-pick.',
+      failed: `Couldn’t be rebuilt${imp.note ? ': ' + imp.note : ''}.`,
+    }[imp.state] || ''
+    const canClear = imp.id !== state.uploading && imp.state !== 'queued' && imp.state !== 'working'
+    return `<div class="item row"><div class="row-text"><h4 class="name">${esc(imp.name)}</h4><p class="note">${esc(said)} ${plural(files.length, 'file')}.</p></div>${
+      canClear ? `<button class="btn quiet warn" data-act="import-clear" data-import="${esc(imp.id)}">Delete uploaded files</button>` : `<span class="tag wait">${imp.state === 'working' ? 'Working' : 'Waiting'}</span>`
+    }</div>`
+  }
+
+  // The form's two answers: the files and the name. Each says what is missing once, and stops saying it as soon as it is put right.
+  const nameError = isShown => {
+    $('import-name-error').hidden = !isShown
+    $('import-name-hint').hidden = isShown
+    if (isShown) $('import-name').setAttribute('aria-invalid', 'true')
+    else $('import-name').removeAttribute('aria-invalid')
+  }
+  const filesError = isShown => { $('import-files-error').hidden = !isShown }
+
+  const renderImport = () => {
+    const total = state.staged.reduce((n, x) => n + x.file.size, 0)
+    draw(
+      'import-list',
+      state.staged.length || state.left.length
+        ? `<div class="staged"><strong>${plural(state.staged.length, 'file')} ready</strong><span>${size(total)}</span>${state.busy ? '' : `<button class="btn quiet" data-act="import-reset">Clear files</button>`}${
+            state.left.length ? `<details><summary>${state.left.length} left out</summary><ul>${state.left.slice(0, 20).map(x => `<li>${esc(x.path)}: ${esc(x.why)}</li>`).join('')}${state.left.length > 20 ? `<li>and ${state.left.length - 20} more</li>` : ''}</ul></details>` : ''
+          }</div>`
+        : '',
+    )
+    $('import-go').disabled = state.busy
+    if (state.busy) $('import-go').setAttribute('aria-busy', 'true')
+    else $('import-go').removeAttribute('aria-busy')
+    $('import-go').textContent = state.busy ? 'Uploading…' : 'Upload and rebuild'
+    if ($('import-status').textContent !== state.importNote) $('import-status').textContent = state.importNote
+  }
+
+  // A list that is still on its way is drawn as the shape it will have.
+  const SKELETON = `<div class="list" aria-busy="true"><p class="sr">Loading your apps…</p>${'<div class="item"><span class="skel" style="width:40%"></span><span class="skel" style="width:70%"></span></div>'.repeat(3)}</div>`
+  const toApps = `<button class="btn go" data-tab="auto">Choose apps to improve</button>`
+
+  // While a dropdown in the list is open, the list is left alone: redrawing it would shut the dropdown.
+  let pickingAt = 0
+  let isStale = false
+  const isPicking = () => Date.now() - pickingAt < 20000 && document.activeElement?.matches?.('#grid select') === true
+
+  const render = isForced => {
+    if (isForced !== true && isPicking()) { isStale = true; return }
+    isStale = false
+    const held = keep()
+    const apps = [...state.apps.values()].sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || String(a.title).localeCompare(String(b.title)))
+    const all = [...state.imps.values()]
+    const fresh = all.filter(isWaiting).length
+    const live = all.filter(isLive).sort((a, b) => String(liveAt(b)).localeCompare(String(liveAt(a))))
+    const on = apps.filter(a => modeOf(a) !== 'off')
+    const off = apps.filter(a => modeOf(a) === 'off')
+    const waiting = queued()
+    const isWorking = waiting.length > 0 || apps.some(isBusy)
+    $('count-on').textContent = String(on.length)
+    $('count-new').textContent = String(fresh)
+    $('count-live').textContent = String(live.length)
+    $('sync').dataset.state = state.link
+    $('sync-text').textContent = LINKS[state.link]
+    $('busy').hidden = !isWorking
+    $('orb').classList.toggle('is-busy', isWorking)
+    $('tab-pick').classList.toggle('has-new', fresh > 0)
+
+    const banner = state.blocked
+      ? ['Your apps can’t be shown here', 'Open this page in Claude while signed in to see and change them.', false]
+      : state.lost
+        ? ['Connection lost', 'What you see may be out of date. Reload the page to carry on.', true]
+        : state.unreached
+          ? [state.loaded ? 'Can’t reach your data right now' : 'Can’t reach your data yet', state.loaded ? 'Still trying. What you see may be out of date.' : 'Still trying. Your apps appear here as soon as it answers.', false]
+          : null
+    $('banner').hidden = banner === null
+    if (banner) { draw('banner-title', banner[0]); draw('banner-text', banner[1]); $('banner-go').hidden = !banner[2] }
+
+    const newest = all.filter(i => !i.skipped || isLive(i)).sort((a, b) => String(liveAt(b)).localeCompare(String(liveAt(a))))[0]
+    $('queue').hidden = waiting.length === 0 && !newest
+    $('queue').classList.toggle('is-waiting', waiting.length > 0)
+    draw(
+      'queue-text',
+      waiting.length > 0
+        ? `${plural(waiting.length, 'request')} waiting for Claude. It picks them up in the chat where you typed /playground, or at the next hourly run.`
+        : newest
+          ? `Latest: <b>${esc(newest.title)}</b> in ${esc(state.apps.get(newest.app_id)?.title || 'an app')} ${isLive(newest) ? (wasAuto(newest) ? 'went live by itself' : 'was added to its live version') : 'is ready to cherry-pick'}<span aria-hidden="true">, ${esc(ago(liveAt(newest)))}</span>.`
+          : '',
+    )
+    tick()
+
+    const loading = state.blocked || !state.slow ? '' : SKELETON
+    draw(
+      'grid',
+      !state.loaded
+        ? loading
+        : apps.length === 0
+          ? `<div class="list">${empty('No apps listed yet', 'AI Playground works on your Claude artifacts. Refresh the list to bring them in, or add a website that wasn’t made with Claude.', `<button class="btn go" data-act="refresh">Refresh list</button><button class="btn" data-act="import-open">Add a website</button>`)}</div>`
+          : `${on.length ? `<section class="sec"><h3 class="label">Switched on <b>${on.length}</b></h3><div class="list">${on.map(appRow).join('')}</div></section>` : ''}${
+              off.length ? `<section class="sec"><h3 class="label">${on.length ? 'Off' : 'Your apps'} <b>${off.length}</b></h3>${on.length ? '' : `<p class="note">Nothing is switched on yet. Set an app to Cherry-pick or Immediate and Claude starts on it.</p>`}<div class="list tiles">${off.map(appRow).join('')}</div></section>` : ''
+            }`,
+    )
+
+    const adding = [...state.imports.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    $('imports').hidden = adding.length === 0
+    draw('imports', adding.length ? `<h3 class="label">Websites you added <b>${adding.length}</b></h3><div class="list">${adding.map(importRow).join('')}</div>` : '')
+    renderImport()
+
+    const shown = apps.filter(a => a.id === state.focus || modeOf(a) !== 'off' || a.experimental_url || isBusy(a) || impsOf(a.id).some(i => !isLive(i)))
+    shown.sort((a, b) => impsOf(b.id).filter(isWaiting).length - impsOf(a.id).filter(isWaiting).length)
+    draw(
+      'pick-list',
+      !state.loaded
+        ? loading
+        : shown.length
+          ? shown.map(block).join('')
+          : `<div class="list">${empty('Nothing to cherry-pick yet', 'Set an app to Cherry-pick and its improvements appear here after its first run, each with before and after pictures.', toApps)}</div>`,
+    )
+
+    const auto = live.filter(wasAuto)
+    $('lf-all').textContent = String(live.length)
+    $('lf-auto').textContent = String(auto.length)
+    $('lf-pick').textContent = String(live.length - auto.length)
+    for (const b of document.querySelectorAll('[data-act="live-filter"]')) b.setAttribute('aria-pressed', String(b.dataset.f === state.liveFilter))
+    const listed = state.liveFilter === 'auto' ? auto : state.liveFilter === 'pick' ? live.filter(i => !wasAuto(i)) : live
+    draw(
+      'live-list',
+      !state.loaded
+        ? loading
+        : listed.length
+          ? `<div class="list">${listed.slice(0, state.liveShown).map(entry).join('')}</div>${listed.length > state.liveShown ? `<div><button class="btn" data-act="live-more">Show ${Math.min(PAGE, listed.length - state.liveShown)} more</button></div>` : ''}`
+          : `<div class="list">${
+              live.length
+                ? empty(state.liveFilter === 'pick' ? 'No cherry-picked updates yet' : 'No automatic updates yet', state.liveFilter === 'pick' ? 'Improvements you add to a live app from Cherry-pick are listed here.' : 'Improvements that go live by themselves, on Immediate, are listed here.', `<button class="btn" data-act="live-filter" data-f="all">Show all updates</button>`)
+                : empty('No updates made yet', 'Every improvement that reaches a live app is listed here with its before and after pictures, whether you cherry-picked it or it went live on Immediate.', toApps)
+            }</div>`,
+    )
+
+    const isRefreshing = waiting.some(r => r.kind === 'refresh')
+    for (const b of document.querySelectorAll('[data-act="refresh"]')) {
+      b.textContent = isRefreshing ? 'Refreshing…' : 'Refresh list'
+      for (const attr of ['aria-busy', 'aria-disabled']) isRefreshing ? b.setAttribute(attr, 'true') : b.removeAttribute(attr)
+    }
+    for (const b of document.querySelectorAll('[data-act="marks-toggle"]')) b.textContent = state.marks ? 'Hide change boxes' : 'Show change boxes'
+    redraw()
+    watchMarks()
+    for (const tab of TABS) {
+      $('tab-' + tab).setAttribute('aria-selected', String(state.tab === tab))
+      $('tab-' + tab).tabIndex = state.tab === tab ? 0 : -1
+      $('panel-' + tab).hidden = state.tab !== tab
+    }
+    refocus(held)
+  }
+
+  // The hourly run starts at the same minute each hour; the dashboard is told which one in settings/schedule.
+  const tick = () => {
+    const minute = Number(state.settings.get('schedule')?.minute)
+    const known = Number.isInteger(minute) && minute >= 0 && minute < 60
+    $('next').hidden = !known
+    if (!known) return void $('orb-arc').setAttribute('stroke-dasharray', '0 100')
+    const at = new Date()
+    const left = ((minute - at.getMinutes() + 60) % 60) * 60 - at.getSeconds()
+    const seconds = left <= 0 ? left + 3600 : left
+    $('next-in').textContent = seconds < 90 ? 'about now' : `${Math.round(seconds / 60)} min`
+    $('orb-arc').setAttribute('stroke-dasharray', `${(100 - (seconds / 3600) * 100).toFixed(1)} 100`)
+  }
+
+  // The heading's own motion. The title resolves out of noise when the page opens, and again under the pointer.
+  const NOISE = 'X#/<>01_=+'
+  let isDecoding = false
+  const decode = () => {
+    // The Claude skin's title holds still, and so does every title where less motion is asked for.
+    if (isDecoding || skinNow() === 'claude' || isCalm()) return
+    isDecoding = true
+    const el = $('title')
+    const text = el.dataset.text
+    const FRAMES = 22
+    const step = frame => {
+      const shown = Math.floor((frame / FRAMES) * text.length)
+      el.textContent = frame >= FRAMES ? text : [...text].map((ch, n) => (n < shown || ch === ' ' ? ch : NOISE[Math.floor(Math.random() * NOISE.length)])).join('')
+      if (frame < FRAMES) setTimeout(step, 45, frame + 1)
+      else isDecoding = false
+    }
+    step(0)
+  }
+  // What the line over the title has to say, from what the page holds now.
+  const facts = () => {
+    const out = ['Auto improve']
+    if (!state.loaded) return out
+    const apps = [...state.apps.values()]
+    const imps = [...state.imps.values()]
+    const on = apps.filter(a => modeOf(a) !== 'off').length
+    const fresh = imps.filter(isWaiting).length
+    const made = imps.filter(isLive).length
+    out.push(`${on} app${on === 1 ? '' : 's'} switched on`)
+    if (fresh > 0) out.push(`${fresh} to cherry-pick`)
+    if (made > 0) out.push(`${made} update${made === 1 ? '' : 's'} made`)
+    if (!$('next').hidden) out.push(`Next run ${$('next-in').textContent === 'about now' ? '' : 'in '}${$('next-in').textContent}`)
+    return out
+  }
+  // It types one, holds it, wipes it and types the next.
+  const narrate = () => {
+    if (isCalm()) return
+    const el = $('readout')
+    let at = 0
+    const write = (text, n) => {
+      el.textContent = text.slice(0, n)
+      if (n < text.length) setTimeout(write, 38, text, n + 1)
+      else setTimeout(wipe, 3200)
+    }
+    const wipe = () => {
+      const text = el.textContent
+      if (text === '') {
+        const all = facts()
+        at = (at + 1) % all.length
+        return write(all[at], 1)
+      }
+      el.textContent = text.slice(0, -1)
+      setTimeout(wipe, 16)
+    }
+    setTimeout(wipe, 3200)
+  }
+
+  const isCalm = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+  const show = (tab, focus) => {
+    state.tab = tab
+    if (focus !== undefined) state.focus = focus
+    try { history.replaceState(null, '', '#' + tab) } catch { /* the tab still changes */ }
+    render(true)
+    if (focus === '') scrollTo({ top: 0 })
+    if (focus) {
+      return void requestAnimationFrame(() => {
+        $('app-' + focus)?.scrollIntoView({ behavior: isCalm() ? 'auto' : 'smooth', block: 'start' })
+        $('app-h-' + focus)?.focus({ preventScroll: true })
+      })
+    }
+    if (isAdrift() || $('panel-' + tab).contains(document.activeElement) === false) $('tab-' + tab).focus({ preventScroll: true })
+  }
+  // From an app's improvements back to its row of settings.
+  const showSettings = appId => {
+    show('auto')
+    requestAnimationFrame(() => {
+      $('row-' + appId)?.scrollIntoView({ behavior: isCalm() ? 'auto' : 'smooth', block: 'center' })
+      focusOn(`#row-${CSS.escape(appId)} [aria-pressed="true"]`)
+    })
+  }
+
+  // A word at the foot of the page when something fails or is done. A failure stays until it is dismissed, and its details can be copied.
+  let toastTimer = 0
+  let details = ''
+  const notify = (text, error) => {
+    clearTimeout(toastTimer)
+    details = error ? JSON.stringify({ code: error.code || '', message: String(error.message || error), at: now(), tab: state.tab }) : ''
+    $('toast').setAttribute('role', error ? 'alert' : 'status')
+    $('toast').classList.toggle('is-error', Boolean(error))
+    $('toast-text').textContent = text
+    $('toast-copy').hidden = details === ''
+    $('toast').hidden = false
+    if (!error) toastTimer = setTimeout(() => { $('toast').hidden = true }, 6000)
+  }
+  const FAILS = {
+    invalid_argument: 'That change wasn’t saved. Only the owner of this page can change it, or what you changed has just been removed. Reload to see the latest.',
+    transform_error: 'That change wasn’t saved. Reload the page and try again.',
+    quota_exceeded: 'Your dashboard is full. Claude clears out finished requests at its next run; try again after that.',
+    resource_exhausted: 'Too many changes at once. Wait a moment and try again.',
+    revoked: 'This page can’t save changes any more. Reload it in Claude.',
+    not_granted: 'This page can’t save changes here. Open it in Claude.',
+    capability_disabled: 'This page can’t save changes here. Open it in Claude.',
+    capability_removed: 'This page can’t save changes here. Open it in Claude.',
+  }
+  const fail = e => notify(own(FAILS, e?.code, 'That change wasn’t saved. Check your connection and try again.'), e || new Error('unknown'))
+  const request = body => db.collection('requests').add({ state: 'queued', created_at: now(), ...body })
+  const clearRequests = async impId => {
+    const snap = await db.collection('requests').where('improvement_id', '==', impId).where('state', '==', 'queued').get()
+    for (const d of snap.docs) await db.doc('requests/' + d.id).delete()
+  }
+  const setMode = (app, mode) => db.doc('apps/' + app.id).update({ mode, auto: mode !== 'off', updated_at: now() })
+
+  // The two things that open over the page. Each hands the keyboard back to what opened it.
+  let openedFrom = ''
+  const openOver = id => { openedFrom = keep(); $(id).showModal() }
+  const closed = () => setTimeout(() => { refocus(openedFrom); if (isAdrift()) $('tab-' + state.tab).focus({ preventScroll: true }) })
+
+  // Files chosen or dropped: each is kept, or left out with the reason.
+  const openImport = () => {
+    state.tab = 'auto'
+    $('import').hidden = false
+    $('import-open').setAttribute('aria-expanded', 'true')
+    render(true)
+  }
+  const say = text => { state.importNote = text; renderImport() }
+  const stage = found => {
+    const first = found[0]?.path.split('/')[0]
+    const isOneFolder = found.length > 0 && found.every(x => x.path.includes('/') && x.path.split('/')[0] === first)
+    if (isOneFolder && $('import-name').value.trim() === '') { $('import-name').value = first.slice(0, 80); nameError(false) }
+    for (const x of found) {
+      const path = (isOneFolder ? x.path.slice(first.length + 1) : x.path).replace(/^\/+/, '')
+      const ext = (/\.([a-z0-9]+)$/i.exec(path) || ['', ''])[1].toLowerCase()
+      const type = BINARY[ext] || (TEXT.has(ext) ? 'text/plain' : '')
+      const why = /(^|\/)(node_modules|\.git)\//.test(path) || /(^|\/)\.[^/]*$/.test(path) ? 'not part of the site' : type === '' ? 'this kind of file can’t be stored' : x.file.size === 0 ? 'empty' : x.file.size > 20 * MB ? 'over 20 MB' : state.staged.length >= MAX_FILES ? `over the ${MAX_FILES} file limit` : ''
+      if (why) state.left.push({ path, why })
+      else if (!state.staged.some(s => s.path === path)) state.staged.push({ file: x.file, path, type })
+    }
+    if (state.staged.length > 0) filesError(false)
+    state.importNote = ''
+    openImport()
+  }
+  const walk = async (item, prefix, out) => {
+    try {
+      if (item.isFile) out.push({ file: await new Promise((done, no) => item.file(done, no)), path: prefix + item.name })
+      else if (item.isDirectory) {
+        const reader = item.createReader()
+        for (;;) {
+          const batch = await new Promise((done, no) => reader.readEntries(done, no))
+          if (batch.length === 0) break
+          for (const inner of batch) await walk(inner, prefix + item.name + '/', out)
+        }
+      }
+    } catch { /* a file the browser will not hand over is left out */ }
+  }
+  // A drop's entries are only readable while the drop is being handled, so they are taken at once.
+  const dropped = e => {
+    const items = [...(e.dataTransfer.items || [])].map(i => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null)).filter(Boolean)
+    const loose = [...e.dataTransfer.files].map(file => ({ file, path: file.name }))
+    if (items.length === 0) return Promise.resolve(loose)
+    return (async () => { const out = []; for (const item of items) await walk(item, '', out); return out })()
+  }
+
+  const STOPS = {
+    quota_or_state: 'This dashboard’s storage is full. Delete the uploaded files of an earlier website, then try again.',
+    upstream_auth: 'Reload this page and sign in again, then try again.',
+    rate_limited: 'Too many uploads at once. Wait a minute, then try again.',
+  }
+  const put = async (x, isRetry) => {
+    try { return await assets.upload(x.file, { type: x.type }) } catch (e) {
+      if (!isRetry && (e?.code === 'rate_limited' || e?.code === 'store_unavailable')) { await new Promise(done => setTimeout(done, 3000)); return put(x, true) }
+      throw e
+    }
+  }
+  // The button can always be pressed. With something missing it says what, and goes to the first thing to put right.
+  const importGo = async () => {
+    const name = $('import-name').value.trim()
+    const hasFiles = state.staged.length > 0
+    filesError(!hasFiles)
+    nameError(name === '')
+    if (!hasFiles) return $('pick-files').focus()
+    if (name === '') return $('import-name').focus()
+    if (!db || !assets) return say('Uploading isn’t available in this view. Open this page in Claude as its owner.')
+    state.busy = true
+    say('Starting…')
+    const files = []
+    const left = [...state.left]
+    let ref = null
+    let stopped = ''
+    try {
+      ref = await db.collection('imports').add({ name, state: 'uploading', files: [], created_at: now() })
+      state.uploading = ref.id
+      for (const [n, x] of state.staged.entries()) {
+        say(`Uploading ${n + 1} of ${state.staged.length}: ${x.path}`)
+        try {
+          const kept = await put(x, false)
+          files.push({ path: x.path, asset: kept.id, type: x.type, size: kept.sizeBytes })
+        } catch (e) {
+          if (e?.code === 'too_large') left.push({ path: x.path, why: 'too large to store' })
+          else if (e?.code === 'unsupported_type' || e?.code === 'invalid_request') left.push({ path: x.path, why: 'not a kind of file that can be stored' })
+          else { stopped = STOPS[e?.code] || 'The upload stopped. Check your connection and try again.'; break }
+        }
+      }
+      if (stopped === '' && files.length === 0) stopped = 'None of those files could be stored. Choose the site’s pages, styles, scripts and images, then try again.'
+      await ref.update({ files, left_out: left.slice(0, 100).map(x => x.path), state: stopped ? 'failed' : 'queued', note: stopped ? 'the upload stopped part way' : '' })
+      if (stopped === '') await request({ kind: 'import', import_id: ref.id })
+    } catch (e) {
+      stopped = e?.code === 'invalid_argument' ? 'Only the owner of this page can add a website.' : 'That upload wasn’t saved. Check your connection and try again.'
+    }
+    state.busy = false
+    state.uploading = ''
+    if (stopped) return say(stopped)
+    state.staged = []
+    state.left = []
+    $('import-name').value = ''
+    say(`Uploaded ${plural(files.length, 'file')}. Claude rebuilds “${name}” in the chat where you typed /playground, or at the next hourly run.`)
+    render()
+  }
+
+  const pending = new Set()
+  const act = async el => {
+    const a = el.dataset.act
+    if (el.getAttribute('aria-disabled') === 'true') return
+    if (a === 'close-box') return $('box').close()
+    if (a === 'zoom') {
+      $('box-img').src = el.dataset.src
+      $('box-img').alt = el.dataset.alt || ''
+      $('box-marks').dataset.key = el.dataset.key || ''
+      $('box-marks').innerHTML = boxed(el.dataset.key || '')
+      return openOver('box')
+    }
+    if (a === 'marks-toggle') { state.marks = !state.marks; return render(true) }
+    if (a === 'focus' || a === 'review') return show('pick', el.dataset.app)
+    if (a === 'settings') return showSettings(el.dataset.app)
+    if (a === 'see-live') return show('live', '')
+    if (a === 'live-filter') { state.liveFilter = el.dataset.f; state.liveShown = PAGE; render(true); return focusOn(`#panel-live [data-act="live-filter"][data-f="${state.liveFilter}"]`) }
+    if (a === 'live-more') { state.liveShown += PAGE; return render(true) }
+    if (a === 'reload') return location.reload()
+    if (a === 'toast-close') return void ($('toast').hidden = true)
+    if (a === 'toast-copy') {
+      try { await navigator.clipboard.writeText(details); $('toast-text').textContent = 'Error details copied.' } catch { $('toast-text').textContent = details }
+      return void ($('toast-copy').hidden = true)
+    }
+    if (a === 'disarm') { state.arming = ''; render(true); return focusOn(`#row-${CSS.escape(el.dataset.app)} [data-mode="immediate"]`) }
+    if (a === 'import-open') { openImport(); return $('pick-files').focus() }
+    if (a === 'import-close') { $('import').hidden = true; $('import-open').setAttribute('aria-expanded', 'false'); return $('import-open').focus() }
+    if (a === 'pick-files') return $('import-files').click()
+    if (a === 'pick-folder') return $('import-folder').click()
+    if (a === 'import-reset') { state.staged = []; state.left = []; say(''); return $('pick-files').focus() }
+    if (a === 'import-go') return state.busy ? undefined : importGo()
+    if (a === 'confirm-no') return $('confirm').close()
+    if (!db) return
+    const once = `${a}:${el.dataset.app || ''}:${el.dataset.imp || ''}:${el.dataset.target || ''}`
+    if (pending.has(once)) return
+    pending.add(once)
+    try {
+      if (a === 'refresh') return void (queued().some(r => r.kind === 'refresh') || (await request({ kind: 'refresh' })))
+      const app = state.apps.get(el.dataset.app)
+      const imp = state.imps.get(el.dataset.imp)
+      if (a === 'mode' && app) {
+        const mode = el.dataset.mode
+        if (mode === modeOf(app)) return
+        if (mode === 'immediate') { state.arming = app.id; render(true); return focusOn(`#row-${CSS.escape(app.id)} [data-act="disarm"]`) }
+        state.arming = ''
+        await setMode(app, mode)
+      }
+      if (a === 'arm' && app) {
+        state.arming = ''
+        render(true)
+        focusOn(`#row-${CSS.escape(app.id)} [data-mode="immediate"]`)
+        await setMode(app, 'immediate')
+      }
+      if (a === 'improve' && app && !isBusy(app)) {
+        await request({ kind: 'improve', app_id: app.id })
+        await db.doc('apps/' + app.id).update({ status: 'queued', updated_at: now() })
+      }
+      if (a === 'add' && imp && STAGES.some(([k]) => k === el.dataset.target) && where(imp, el.dataset.target) === 'no') {
+        await request({ kind: 'add', target: el.dataset.target, app_id: imp.app_id, improvement_id: imp.id })
+        await db.doc('improvements/' + imp.id).update({ [el.dataset.target]: 'adding' })
+      }
+      // Only the stages still being added go back, so a stage Claude has just put in stays in.
+      if (a === 'cancel' && imp && !isTaken(imp)) {
+        await clearRequests(imp.id)
+        const back = Object.fromEntries(STAGES.filter(([k]) => where(imp, k) === 'adding').map(([k]) => [k, 'no']))
+        if (Object.keys(back).length) await db.doc('improvements/' + imp.id).update(back)
+      }
+      if (a === 'skip' && imp) await db.doc('improvements/' + imp.id).update({ skipped: true })
+      if (a === 'unskip' && imp) await db.doc('improvements/' + imp.id).update({ skipped: false })
+      // Deleting uploaded files cannot be undone, so it is asked about by name first.
+      if (a === 'import-clear') {
+        const gone = state.imports.get(el.dataset.import)
+        if (!gone || !assets) return
+        const count = Array.isArray(gone.files) ? gone.files.length : 0
+        state.sure = gone.id
+        $('confirm-title').textContent = `Delete the uploaded files for “${gone.name}”?`
+        $('confirm-text').textContent = `This permanently removes ${plural(count, 'uploaded file')} from this dashboard.${gone.state === 'done' ? ' The app Claude rebuilt from them stays in your list.' : ''} This can’t be undone.`
+        openOver('confirm')
+        return $('confirm-no').focus()
+      }
+      if (a === 'confirm-yes') {
+        const gone = state.imports.get(state.sure)
+        $('confirm').close()
+        if (!gone || !assets) return
+        for (const f of Array.isArray(gone.files) ? gone.files : []) await assets.delete(f.asset)
+        await db.doc('imports/' + gone.id).delete()
+        notify(`Deleted the uploaded files for “${gone.name}”.`)
+      }
+    } catch (e) { fail(e) } finally { pending.delete(once) }
+  }
+
+  document.addEventListener('click', e => {
+    const tab = e.target.closest('[data-tab]')
+    if (tab) {
+      // Going to Auto improve puts the page back as it starts: the form for adding a website is folded away, unless it is busy uploading.
+      if (tab.dataset.tab === 'auto' && !state.busy) { $('import').hidden = true; $('import-open').setAttribute('aria-expanded', 'false') }
+      return show(tab.dataset.tab, '')
+    }
+    // A press on the dimmed page behind a dialog is a way out of it, and never a yes.
+    if (e.target === $('box') || e.target === $('confirm')) return e.target.close()
+    const el = e.target.closest('[data-act]')
+    if (el && el.tagName !== 'SELECT') act(el)
+  })
+  document.addEventListener('change', async e => {
+    const picked = e.target.closest('#import-files, #import-folder')
+    if (picked) {
+      stage([...picked.files].map(file => ({ file, path: file.webkitRelativePath || file.name })))
+      picked.value = ''
+      return
+    }
+    if (e.target.id === 'skin') {
+      const skin = e.target.value
+      if (skin === 'deck') delete document.documentElement.dataset.skin
+      else document.documentElement.dataset.skin = skin
+      try { localStorage.setItem(SKIN, skin) } catch { /* it still applies until the page is closed */ }
+      return
+    }
+    if (e.target.id === 'currency') {
+      currency = e.target.value
+      try { localStorage.setItem(KEPT, currency) } catch { /* it still applies until the page is closed */ }
+      return render(true)
+    }
+    const el = e.target.closest('select[data-act="cadence"], select[data-act="budget"]')
+    if (!el || !db) return
+    pickingAt = 0
+    const change = el.dataset.act === 'budget' ? { budget: Number(el.value) || 0 } : { cadence: el.value }
+    try { await db.doc('apps/' + el.dataset.app).update({ ...change, updated_at: now() }) } catch (err) { fail(err) }
+  })
+  document.addEventListener('pointerdown', e => { if (e.target.closest?.('#grid select')) pickingAt = Date.now() })
+  document.addEventListener('keydown', e => {
+    if (e.target.matches?.('#grid select')) pickingAt = Date.now()
+    // The tabs are one stop for the Tab key; the arrow keys move between them.
+    const tab = e.target.closest?.('[role="tab"]')
+    if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+    e.preventDefault()
+    const at = TABS.indexOf(tab.dataset.tab)
+    const to = e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length
+    show(TABS[to], '')
+    $('tab-' + TABS[to]).focus()
+  })
+  document.addEventListener('focusout', e => {
+    if (e.target.matches?.('#grid select')) { pickingAt = 0; if (isStale) setTimeout(render) }
+    // The name is asked for once the field has been left empty, never while it is being typed.
+    if (e.target.id === 'import-name' && !$('import').hidden && e.target.value.trim() === '') nameError(true)
+  })
+  document.addEventListener('input', e => { if (e.target.id === 'import-name') nameError(false) })
+  $('box').addEventListener('close', closed)
+  $('confirm').addEventListener('close', () => { state.sure = ''; closed() })
+  $('how').addEventListener('toggle', () => { try { localStorage.setItem(HOW, $('how').open ? 'open' : 'closed') } catch { /* it stays as it is until the page is closed */ } })
+
+  // Files dragged anywhere over the page open the drop zone; dropped anywhere, they are taken.
+  const carriesFiles = e => [...(e.dataTransfer?.types || [])].includes('Files')
+  let over = 0
+  document.addEventListener('dragover', e => {
+    if (!carriesFiles(e)) return
+    e.preventDefault()
+    if (state.busy) return
+    if ($('import').hidden || state.tab !== 'auto') openImport()
+    $('drop').classList.add('is-over')
+    clearTimeout(over)
+    over = setTimeout(() => $('drop').classList.remove('is-over'), 400)
+  })
+  document.addEventListener('drop', async e => {
+    if (!carriesFiles(e)) return
+    e.preventDefault()
+    $('drop').classList.remove('is-over')
+    if (!state.busy) stage(await dropped(e))
+  })
+
+  const arrived = new Set()
+  const confirmed = new Set()
+  const broken = new Set()
+  const LISTS = ['apps', 'improvements', 'requests', 'imports', 'settings']
+  const linkNow = () => (broken.size ? 'offline' : confirmed.size === LISTS.length ? 'live' : 'connecting')
+  const listen = (name, query, into) =>
+    query.onSnapshot(
+      snap => {
+        into.clear()
+        for (const d of snap.docs) into.set(d.id, { ...d.data(), id: d.id })
+        arrived.add(name)
+        if (snap.metadata?.fromCache !== true) confirmed.add(name)
+        state.loaded = arrived.has('apps') && arrived.has('improvements')
+        if (confirmed.size === LISTS.length) state.unreached = false
+        state.link = linkNow()
+        render()
+      },
+      () => { broken.add(name); state.lost = true; state.unreached = false; state.link = linkNow(); render() },
+    )
+
+  const start = async () => {
+    const asked = location.hash.slice(1)
+    if (TABS.includes(asked)) state.tab = asked
+    try { if (localStorage.getItem(HOW) === 'closed') $('how').open = false } catch { /* it starts open */ }
+    $('currency').innerHTML = Object.keys(RATES).sort().map(code => `<option ${code === currency ? 'selected' : ''}>${code}</option>`).join('')
+    $('skin').innerHTML = SKINS.map(([value, text]) => `<option value="${value}" ${value === skinNow() ? 'selected' : ''}>${text}</option>`).join('')
+    render()
+    decode()
+    narrate()
+    $('home').addEventListener('pointerenter', decode)
+    // A list that arrives at once is never preceded by a flash of placeholder.
+    setTimeout(() => { state.slow = true; if (!state.loaded) render() }, 100)
+    db = await (window.claude?.use ? window.claude.use('db') : null)
+    if (!db) { state.link = 'offline'; state.blocked = true; return render() }
+    // Requests only grow, so the page listens only to the ones still to do; the newest improvements and imports first.
+    // A runtime without filters or ordering gets the plain window; the page filters what it shows either way.
+    const narrowed = (name, shape, n) => { try { return shape(db.collection(name)).limit(n) } catch { return db.collection(name).limit(n) } }
+    listen('apps', db.collection('apps').limit(1000), state.apps)
+    listen('improvements', narrowed('improvements', c => c.orderBy('created_at', 'desc'), 1000), state.imps)
+    listen('requests', narrowed('requests', c => c.where('state', 'in', ['queued', 'working']), 500), state.reqs)
+    listen('imports', narrowed('imports', c => c.orderBy('created_at', 'desc'), 200), state.imports)
+    listen('settings', db.collection('settings').limit(50), state.settings)
+    setTimeout(() => { if (confirmed.size < LISTS.length && broken.size === 0) { state.unreached = true; render() } }, 10000)
+    assets = await window.claude.use('assets')
+    setInterval(render, 60000)
+    setInterval(tick, 15000)
+  }
+  start()
+})()
+</script>
