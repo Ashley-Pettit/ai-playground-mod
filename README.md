@@ -19,7 +19,15 @@ Dev should only hold work you chose. Claude makes new ideas every hour, some gre
 
 ## Install
 
-At the prompt of a Claude Code terminal session:
+### In the Claude desktop app (easiest, no terminal)
+
+1. Go to [claude.ai/customize/plugins](https://claude.ai/customize/plugins) and add the marketplace `Ashley-Pettit/ai-playground-mod`.
+2. In the desktop app's **Code** tab, click **+** next to the prompt box, then **Add plugins** (or **Plugins**, then **Browse plugins**).
+3. Add **self-improve**, start a new session and type `/playground`.
+
+### In a terminal
+
+At the prompt of a Claude Code session:
 
 ```
 /plugin install self-improve --marketplace Ashley-Pettit/ai-playground-mod
@@ -27,13 +35,13 @@ At the prompt of a Claude Code terminal session:
 
 Answer `y` to add the marketplace, then pick a scope (user is the usual choice).
 
-From a shell:
+Or straight from a shell:
 
 ```
 claude plugin install self-improve --marketplace Ashley-Pettit/ai-playground-mod
 ```
 
-In the Claude desktop app, where `/plugin` doesn't run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `Ashley-Pettit/ai-playground-mod`, then **Add plugin**.
+The terminal route needs Claude Code's command line tool and Git on that computer.
 
 ## Use it
 
